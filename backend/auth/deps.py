@@ -1,0 +1,41 @@
+from typing import Annotated
+
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import Select
+from auth.tokens import decode_token
+from db.dbconfig import DB
+from db.models import User
+
+http_bearer = HTTPBearer()
+Credentials = Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)]
+
+async def get_current_user(credentials: Credentials, db: DB):
+    token = credentials.credentials
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(401, 'Invalid Token')
+    user_email = payload.get("email")
+    result = await db.execute(Select(User).where(User.email == user_email))
+    current_user = result.scalars().first()
+    if not current_user:
+        raise HTTPException(401, 'User not found')
+    return current_user
+
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
+    if not current_user.is_active:
+        raise HTTPException(400, 'Invalid User')
+    return current_user
+
+def require_admin(current_user: User = Depends(get_current_user)):
+    if not current_user.role == "admin":
+        raise HTTPException(403, 'Not allowed')
+    return current_user
+
+def require_roles(required_roles: list[str]):
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role not in required_roles:
+            raise HTTPException(403, 'Insufficient permissions')
+        return current_user
+    return role_checker
