@@ -53,7 +53,7 @@ async def register(request: RegisterRequest, db: DB, background_tasks: Backgroun
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    background_tasks.add_task(send_verification_email, user.email, user.verification_token)
+    #background_tasks.add_task(send_verification_email, request.email, email_verification_token)
     return user
 
 

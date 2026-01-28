@@ -7,6 +7,7 @@ from db.dbconfig import create_db_tables
 from auth.route_auth import router as auth_router
 from auth.route_oauth import router as oauth_router
 from routes.route_users import router as user_router
+from routes.health import router as health_router
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(oauth_router)
 app.include_router(user_router)
+app.include_router(health_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8000)
