@@ -45,7 +45,7 @@ async def test_login_wrong_password(client, test_user):
 async def test_login_nonexistent_email(client):
     payload = {
         "username": "test_user",
-        "email": "noone@example.com",
+        "email": "blablabla@example.com",
         "password": "testpass"
     }
     response = await client.post("/auth/token", json=payload)
