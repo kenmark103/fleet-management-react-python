@@ -1,5 +1,6 @@
 name: Backend CI
 on:
+  workflow_dispatch:
   push:
     paths:
       - "backend/**"
@@ -11,6 +12,7 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    environment: develop
 
     services:
       postgres:
