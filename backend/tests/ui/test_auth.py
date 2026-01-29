@@ -48,6 +48,6 @@ async def test_login_nonexistent_email(client):
 @pytest.mark.asyncio
 async def test_register_success():
     payload = {
-        "user_name": "test_user",
+        "username": "test_user",
     }
-    assert payload["user_name"] == "test_user"
+    assert payload["username"] == "test_user"
