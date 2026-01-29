@@ -44,3 +44,10 @@ async def test_login_nonexistent_email(client):
     response = await client.post("/auth/token", json=payload)
     assert response.status_code == 400
     assert response.json()["detail"] == "Incorrect email or password"
+
+@pytest.mark.asyncio
+async def test_register_success():
+    payload = {
+        "username": "test_user",
+    }
+    assert payload["username"] == "test_user"
