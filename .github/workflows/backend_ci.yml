@@ -38,7 +38,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Create test .env
+      - name: Create test .environment
         run: cp backend/.env.example backend/.env
 
       - name: Install dependencies
