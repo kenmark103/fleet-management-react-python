@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRY_IN_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRY_IN_DAYS: int = 7
     PASSWORD_RESET_TOKEN_EXPIRY_IN_DAYS: int = 1
-    DATABASE_URL: str | None = None
+    DATABASE_URL: str
     TEST_DATABASE_URL: str | None = None
 
     GOOGLE_CLIENT_ID: str | None = None
