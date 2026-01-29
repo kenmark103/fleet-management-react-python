@@ -12,9 +12,11 @@ from db.base import Base
 from db.dbconfig import get_async_session
 from db.models import User
 from auth.security import hash_password
+from core.config import get_settings
 
 # ----- Use a test DB; NullPool avoids connection reuse/concurrency in tests -----
-DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://postgres:qwerty@localhost:5432/fleet_management_test_db")
+settings= get_settings()
+DATABASE_URL = settings.TEST_DATABASE_URL
 
 engine: AsyncEngine = create_async_engine(
     DATABASE_URL,
