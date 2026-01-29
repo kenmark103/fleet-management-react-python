@@ -14,7 +14,7 @@ async def test_login_success(client, test_user):
     payload = {
         "username": "test_user",
         "email": "test_user@example.com",
-        "password": "test_pass",  # plain input; hashed stored in DB
+        "password": "test_pass",
     }
     response = await client.post("/auth/token", json=payload)
     assert response.status_code == 200
