@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 from typing import Dict
 from fastapi import HTTPException
 from jose import jwt, JWTError, ExpiredSignatureError
-from core.config import settings
+from core.config import get_settings
 
+settings = get_settings()
 
 def create_access_token(data: Dict):
      return jwt.encode(

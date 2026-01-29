@@ -3,8 +3,9 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import HTTPException
 from auth.tokens import generate_state_token
-from core.config import Settings, settings
+from core.config import  get_settings
 
+settings = get_settings()
 class GoogleOAuth:
     AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -65,8 +66,8 @@ class GoogleOAuth:
                 data = {
                     "grant_type": "refresh_token",
                     "refresh_token": token,
-                    "client_id": Settings.GOOGLE_CLIENT_ID,
-                    "client_secret": Settings.GOOGLE_CLIENT_SECRET,
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
                 }
             )
 

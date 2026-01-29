@@ -1,5 +1,5 @@
 from pydantic import EmailStr
-from core.config import settings
+from core.config import get_settings
 from jinja2 import Environment, FileSystemLoader
 import aiosmtplib
 from email.mime.text import MIMEText
@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 
 
 env = Environment(loader=FileSystemLoader("templates"))
+settings = get_settings()
 
 def send_password_reset_email(email_to: EmailStr, token: str):
     template = env.get_template("reset_password.html")

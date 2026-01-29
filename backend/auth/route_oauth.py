@@ -3,12 +3,13 @@ from fastapi import APIRouter, HTTPException, Query
 from starlette.responses import RedirectResponse
 from auth.google_oauth import google_oauth
 from auth.tokens import  create_access_token, create_refresh_token, decode_token
-from core.config import settings
+from core.config import get_settings
 from db.dbconfig import DB
 from schemas.tokens import TokenResponse
 from services.oauth_service import handle_frontend_redirect, find_or_create_user_from_google
 
 router = APIRouter(prefix='/google', tags=["google oauth"])
+settings = get_settings()
 
 @router.get("/login")
 async def google_login(redirect_url: Optional[str] = Query(None), prompt: Optional[str] = Query("Select Account") ):
