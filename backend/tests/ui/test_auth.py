@@ -1,4 +1,5 @@
 # tests/ui/test_auth.py
+# remember to disable background tasks when u write registration tests#
 import pytest
 
 @pytest.mark.asyncio
