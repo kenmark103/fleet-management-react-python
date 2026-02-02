@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     MAIL_SERVER: str | None = None
     MAIL_FROM_NAME: str | None = None
     FRONTEND_RESET_URL: str | None = None
+    NGROK_AUTHTOKEN: str
 
 
     model_config = SettingsConfigDict(
