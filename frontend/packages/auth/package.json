@@ -1,0 +1,17 @@
+{
+  "name": "@myorg/auth",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "jwt-decode": "^4.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}
