@@ -1,0 +1,10 @@
+curl -X 'POST' \
+  'http://localhost:8000/auth/register' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "username": "Kenny",
+  "email": "kenmark103@fms.com",
+  "password": "12345678",
+  "role": "admin"
+}'

@@ -1,17 +1,13 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy import Select
 from auth.tokens import decode_token
 from db.dbconfig import DB
 from db.models import User
 
-http_bearer = HTTPBearer()
-Credentials = Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)]
-
-async def get_current_user(credentials: Credentials, db: DB):
-    token = credentials.credentials
+async def get_current_user(request: Request, db: DB):
+    token = request.cookies.get("access_token")
     payload = decode_token(token)
     if not payload:
         raise HTTPException(401, 'Invalid Token')
@@ -29,8 +25,8 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 def require_admin(current_user: User = Depends(get_current_user)):
-    if not current_user.role == "admin":
-        raise HTTPException(403, 'Not allowed')
+    if current_user.role != "ADMIN":
+        raise HTTPException(403, "Not allowed")
     return current_user
 
 def require_roles(required_roles: list[str]):

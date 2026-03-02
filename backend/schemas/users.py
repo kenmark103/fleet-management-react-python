@@ -1,17 +1,44 @@
+"""
+schemas/users.py
+Fleet Management System
+
+User schemas — imported by auth router and users router.
+"""
+
+from __future__ import annotations
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import EmailStr
+from schemas.common import CamelBase, UserRole
 
 
-class UserCreateRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=50)
-    role: Optional[str] = 'user'
-
-class UserResponse(BaseModel):
-    username: str
-    email: str
-    role: str
+class UserBase(CamelBase):
+    email:      EmailStr
+    first_name: str        # → firstName
+    last_name:  str        # → lastName
+    role:       UserRole
+    phone:      Optional[str] = None
+    avatar_url: Optional[str] = None  # → avatarUrl
 
 
+class UserCreate(UserBase):
+    """POST /settings/users — ADMIN only"""
+    password: str
 
+
+class UserUpdate(CamelBase):
+    """PATCH /settings/users/{id} — ADMIN only"""
+    first_name: Optional[str]      = None
+    last_name:  Optional[str]      = None
+    role:       Optional[UserRole] = None
+    phone:      Optional[str]      = None
+    is_active:  Optional[bool]     = None  # → isActive
+
+
+class UserResponse(UserBase):
+    id:            str
+    is_active:     bool                   # → isActive
+    is_verified:   bool                   # → isVerified
+    created_at:    datetime               # → createdAt
+    updated_at:    datetime               # → updatedAt
+    last_login_at: Optional[datetime] = None  # → lastLoginAt

@@ -1,113 +1,142 @@
-from typing import Tuple
-from sqlalchemy import Select, select
-from starlette.responses import RedirectResponse
-from auth.email_utils import send_welcome_email
-from auth.tokens import extract_redirect_url_from_state
-from db.dbconfig import DB
+from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User, UserOAuth
-from fastapi import BackgroundTasks
 
 
-async def find_or_create_user_from_google(db: DB, google_data: dict, google_token)->Tuple[User, bool]:
-    google_id = google_data.get('sub')
-    email = google_data.get('email')
+async def find_or_create_user_from_google(
+    db: AsyncSession,
+    userinfo: dict,
+    google_tokens: dict,
+) -> tuple[User, bool]:
+    """
+    Returns (user, is_new_user).
 
-    #check if user is linked
-    oauth_account = await db.execute(select(UserOAuth).where(UserOAuth.provider_user_id == google_id, UserOAuth.provider=="google"))
-    existing_oauth = oauth_account.scalar_one_or_none()
-    if existing_oauth:
-        existing_oauth.access_token = google_token.get('access_token')
-        existing_oauth.refresh_token = google_token.get('refresh_token')
-        existing_oauth.token_expiry = google_token.get('expires_at')
+    Lookup order:
+      1. Existing UserOAuth record by provider_user_id (most reliable)
+      2. Existing User by email (user registered normally, now linking Google)
+      3. Create a new User + UserOAuth record
+    """
+    provider_user_id: str = userinfo["sub"]
+    email: str           = userinfo["email"]
+    is_new_user: bool    = False
 
-        await db.commit()
-        return existing_oauth.user, False
+    # ── 1. Look up by OAuth provider ID ──────────────────────────────────────
+    result = await db.execute(
+        select(UserOAuth).where(
+            UserOAuth.provider == "google",
+            UserOAuth.provider_user_id == provider_user_id,
+        )
+    )
+    oauth_record = result.scalar_one_or_none()
 
+    if oauth_record:
+        # Refresh tokens on every login
+        await _update_oauth_tokens(db, oauth_record, google_tokens)
+        result = await db.execute(select(User).where(User.id == oauth_record.user_id))
+        user = result.scalar_one()
+        _check_active(user)
+        return user, is_new_user
+
+    # ── 2. Existing user with same email (link accounts) ─────────────────────
     result = await db.execute(select(User).where(User.email == email))
-    existing_user = result.scalar_one_or_none()
+    user = result.scalar_one_or_none()
 
-    is_new_user = False
-    if existing_user:
-        user = existing_user
-
-    else:
-
-        username = email.split('@')[0]
-        base_username = username
-        counter = 1
-        while True:
-            result = await db.execute(
-                select(User).where(User.username == base_username)
-            )
-            if not result.scalar_one_or_none():
-                break
-            base_username = f"{username}#{counter}"
-            counter += 1
-
-        user = User(
-            email=email,
-            username=base_username,
-            is_verified=True,
-            password=None
-
+    if user:
+        _check_active(user)
+        # Link the Google account to this existing user
+        oauth_record = UserOAuth(
+            user_id=user.id,
+            provider="google",
+            provider_user_id=provider_user_id,
+            provider_email=email,
+            **_token_fields(google_tokens),
         )
-        db.add(user)
-        await db.flush()
-        is_new_user = True
+        db.add(oauth_record)
+        await db.commit()
+        return user, is_new_user
 
-    oauth_account = UserOAuth(
+    # ── 3. Brand new user ─────────────────────────────────────────────────────
+    is_new_user = True
+    first_name, last_name = _parse_name(userinfo.get("name", ""))
+
+    user = User(
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        password=None,
+        role="DRIVER",
+        is_active=True,
+        is_verified=True,
+        avatar_url=userinfo.get("picture"),
+    )
+    db.add(user)
+    await db.flush()            # populate user.id before creating OAuth record
+
+    oauth_record = UserOAuth(
         user_id=user.id,
-        provider='google',
-        provider_user_id=google_id,
+        provider="google",
+        provider_user_id=provider_user_id,
         provider_email=email,
-        access_token=google_token.get('access_token'),
-        refresh_token=google_token.get('refresh_token'),
-        expires_at=google_token.get('expires_at')
-        )
-
-    db.add(oauth_account)
+        **_token_fields(google_tokens),
+    )
+    db.add(oauth_record)
     await db.commit()
-
-    background_task = BackgroundTasks()
-
-    background_task.add_task(send_welcome_email, email, google_data.get('name'))
+    await db.refresh(user)
 
     return user, is_new_user
 
 
-async def handle_frontend_redirect(access_token, refresh_token, state):
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
-    response = RedirectResponse(extract_redirect_url_from_state(state))
-    response.set_cookie('access_token', access_token, secure=True, httponly=True, max_age=1800)
-    response.set_cookie('refresh_token', refresh_token, secure=True, httponly=True, max_age=86400)
-    return response
+def _parse_name(full_name: str) -> tuple[str, str]:
+    """
+    Splits Google's display name into first + last.
+    'John Doe'      → ('John', 'Doe')
+    'John'          → ('John', '')
+    'John A. Doe'   → ('John', 'A. Doe')
+    ''              → ('Unknown', '')
+    """
+    parts = full_name.strip().split(" ", 1)
+    if not parts or not parts[0]:
+        return "Unknown", ""
+    return parts[0], parts[1] if len(parts) > 1 else ""
 
-async def link_google_account(user: User, db: DB, google_data: dict, google_tokens: dict)->UserOAuth:
-    google_id = google_data.get('sub')
-    result = await db.execute(Select(UserOAuth).where(UserOAuth.user_id == user.id))
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
 
-        existing_user.access_token = google_tokens.get('access_token')
-        existing_user.refresh_token = google_tokens.get('refresh_token')
-        existing_user.expires_at = google_tokens.get('expires_at')
+def _token_fields(google_tokens: dict) -> dict:
+    """Extracts token fields to store on the UserOAuth record."""
+    expires_in = google_tokens.get("expires_in")
+    expires_at = None
+    if expires_in:
+        from datetime import timedelta
+        expires_at = datetime.utcnow() + timedelta(seconds=int(expires_in))
 
-        await db.commit()
-        return existing_user
+    return {
+        "access_token":  google_tokens.get("access_token"),
+        "refresh_token": google_tokens.get("refresh_token"),
+        "expires_at":    expires_at,
+    }
 
-    oauth = UserOAuth(
-        user_id=user.id,
-        provider='google',
-        provider_user_id=google_id,
-        provider_email=user.email,
-        access_token=google_tokens.get('access_token'),
-        refresh_token=google_tokens.get('refresh_token'),
-        expires_at=google_tokens.get('expires_at')
-    )
 
-    db.add(oauth)
+async def _update_oauth_tokens(
+    db: AsyncSession,
+    oauth_record: UserOAuth,
+    google_tokens: dict,
+) -> None:
+    """Refreshes stored OAuth tokens on every login."""
+    fields = _token_fields(google_tokens)
+    oauth_record.access_token  = fields["access_token"]
+    oauth_record.refresh_token = fields["refresh_token"]
+    oauth_record.expires_at    = fields["expires_at"]
     await db.commit()
 
-    return oauth
 
-
+def _check_active(user: User) -> None:
+    from fastapi import HTTPException
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Account is deactivated. Contact your administrator.",
+        )

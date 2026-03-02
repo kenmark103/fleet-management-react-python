@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.pool import NullPool
 
 from httpx import AsyncClient, ASGITransport
-
 from main import app
 from db.base import Base
 from db.dbconfig import get_async_session
