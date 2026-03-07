@@ -25,8 +25,6 @@ async_session = async_sessionmaker(
 
 
 async def create_db_tables() -> None:
-    if settings.ENVIRONMENT == "production":
-        raise RuntimeError("Use Alembic migrations in production.")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
