@@ -26,7 +26,7 @@ SECRET — must be in .env locally and CI secrets in production:
 """
 
 from __future__ import annotations
-from typing import Literal
+from typing import Literal, List
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -84,11 +84,18 @@ class Settings(BaseSettings):
     # ── Misc ──────────────────────────────────────────────────────────────────
     NGROK_AUTHTOKEN: str | None = None
 
+    # ── CORS ──────────────────────────────────────────────────────────────────
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://localhost:3000",
+        "https://fleet-management-react-python.vercel.app",
+    ]
+
     model_config = SettingsConfigDict(
-        env_file=(".env", ".env.example"),
+        env_file=(".env",),
         extra="ignore",
     )
-
 
 @lru_cache
 def get_settings() -> Settings:

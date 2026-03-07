@@ -1,100 +1,81 @@
+/**
+ * lib/fleet-api.ts
+ * Fleet Management System
+ *
+ * Pure data functions for fleet resources (trucks + trailers).
+ * Called by useFleet.ts hooks — not used directly in components.
+ * Uses central axios instance for automatic token refresh on 401.
+ */
 
-import { API_BASE_URL } from "./constants";
+import api from './api'
 import type {
   Truck, Trailer, FleetSummary,
   TruckStatus, TrailerStatus,
-} from "../types/fleet";
+} from '../types/fleet'
 
 export interface TruckPayload {
-  plateNumber:          string;
-  make:                 string;
-  model:                string;
-  year:                 number;
-  status:               TruckStatus;
-  odometerKm:           number;
-  fuelType:             "diesel" | "petrol" | "electric" | "hybrid";
-  vin?:                 string;
-  color?:               string;
-  insuranceExpiryDate?: string;
-  inspectionExpiryDate?: string;
-  notes?:               string;
+  plateNumber:           string
+  make:                  string
+  model:                 string
+  year:                  number
+  status:                TruckStatus
+  odometerKm:            number
+  fuelType:              'diesel' | 'petrol' | 'electric' | 'hybrid'
+  vin?:                  string
+  color?:                string
+  insuranceExpiryDate?:  string
+  inspectionExpiryDate?: string
+  notes?:                string
 }
 
 export interface TrailerPayload {
-  plateNumber:          string;
-  make:                 string;
-  model:                string;
-  year:                 number;
-  status:               TrailerStatus;
-  type:                 "flatbed" | "refrigerated" | "tanker" | "box" | "other";
-  capacityTons?:        number;
-  insuranceExpiryDate?: string;
-  inspectionExpiryDate?: string;
-  notes?:               string;
-}
-
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? "Request failed");
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  plateNumber:           string
+  make:                  string
+  model:                 string
+  year:                  number
+  status:                TrailerStatus
+  type:                  'flatbed' | 'refrigerated' | 'tanker' | 'box' | 'other'
+  capacityTons?:         number
+  insuranceExpiryDate?:  string
+  inspectionExpiryDate?: string
+  notes?:                string
 }
 
 // ── Fleet Summary ─────────────────────────────────────────────────────────────
 
 export const getFleetSummary = () =>
-  req<FleetSummary>("/fleet/summary");
+  api.get<FleetSummary>('/api/v1/fleet/summary').then(r => r.data)
 
 // ── Trucks ────────────────────────────────────────────────────────────────────
 
 export const listTrucks = (status?: TruckStatus) =>
-  req<Truck[]>(`/fleet/trucks${status ? `?status=${status}` : ""}`);
+  api.get<Truck[]>(`/api/v1/fleet/trucks${status ? `?status=${status}` : ''}`).then(r => r.data)
 
 export const getTruck = (id: string) =>
-  req<Truck>(`/fleet/trucks/${id}`);
+  api.get<Truck>(`/api/v1/fleet/trucks/${id}`).then(r => r.data)
 
 export const createTruck = (payload: TruckPayload) =>
-  req<Truck>("/fleet/trucks", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  api.post<Truck>('/api/v1/fleet/trucks', payload).then(r => r.data)
 
 export const updateTruck = (id: string, payload: Partial<TruckPayload>) =>
-  req<Truck>(`/fleet/trucks/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  api.patch<Truck>(`/api/v1/fleet/trucks/${id}`, payload).then(r => r.data)
 
 export const deleteTruck = (id: string) =>
-  req<void>(`/fleet/trucks/${id}`, { method: "DELETE" });
+  api.delete<void>(`/api/v1/fleet/trucks/${id}`).then(r => r.data)
 
 // ── Trailers ──────────────────────────────────────────────────────────────────
 
 export const listTrailers = (status?: TrailerStatus) =>
-  req<Trailer[]>(`/fleet/trailers${status ? `?status=${status}` : ""}`);
+  api.get<Trailer[]>(`/api/v1/fleet/trailers${status ? `?status=${status}` : ''}`).then(r => r.data)
 
 export const getTrailer = (id: string) =>
-  req<Trailer>(`/fleet/trailers/${id}`);
+  api.get<Trailer>(`/api/v1/fleet/trailers/${id}`).then(r => r.data)
 
 export const createTrailer = (payload: TrailerPayload) =>
-  req<Trailer>("/fleet/trailers", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  api.post<Trailer>('/api/v1/fleet/trailers', payload).then(r => r.data)
 
 export const updateTrailer = (id: string, payload: Partial<TrailerPayload>) =>
-  req<Trailer>(`/fleet/trailers/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  api.patch<Trailer>(`/api/v1/fleet/trailers/${id}`, payload).then(r => r.data)
 
 export const deleteTrailer = (id: string) =>
-  req<void>(`/fleet/trailers/${id}`, { method: "DELETE" });
+  api.delete<void>(`/api/v1/fleet/trailers/${id}`).then(r => r.data)

@@ -1,11 +1,11 @@
 """
 schemas/trips.py
-Fleet Management System
+Fleet Management System — Phase 5
 """
 
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from schemas.common import CamelBase, TripStatus
 
 
@@ -18,6 +18,11 @@ class TripBase(CamelBase):
     cargo_description:   Optional[str]   = None
     cargo_weight_tons:   Optional[float] = None
     notes:               Optional[str]   = None
+    # Phase 5: coordinate fields
+    origin_lat:          Optional[float] = None
+    origin_lng:          Optional[float] = None
+    destination_lat:     Optional[float] = None
+    destination_lng:     Optional[float] = None
 
 
 class TripCreate(TripBase):
@@ -43,6 +48,23 @@ class TripUpdate(CamelBase):
     cargo_description:   Optional[str]        = None
     cargo_weight_tons:   Optional[float]      = None
     notes:               Optional[str]        = None
+    # Phase 5: coordinate fields
+    origin_lat:          Optional[float]      = None
+    origin_lng:          Optional[float]      = None
+    destination_lat:     Optional[float]      = None
+    destination_lng:     Optional[float]      = None
+
+
+class TripLocationPingResponse(CamelBase):
+    """Location ping for map display"""
+    id:          str
+    trip_id:     str
+    lat:         float
+    lng:         float
+    recorded_at: datetime
+    recorded_by: str
+    accuracy_m:  Optional[float] = None
+    notes:       Optional[str]  = None
 
 
 class TripResponse(TripBase):
@@ -58,6 +80,13 @@ class TripResponse(TripBase):
     dispatched_by:       str
     created_at:          datetime
     updated_at:          datetime
+    # Phase 5: denormalized display fields (populated by router)
+    assigned_truck_plate:   Optional[str] = None
+    assigned_trailer_plate: Optional[str] = None
+    assigned_driver_name:   Optional[str] = None
+    dispatched_by_name:     str = ""
+    # Phase 5: latest location ping (for map)
+    last_ping:              Optional[TripLocationPingResponse] = None
 
 
 class TripStatusUpdateRequest(CamelBase):

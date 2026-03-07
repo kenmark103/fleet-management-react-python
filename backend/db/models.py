@@ -2,11 +2,30 @@
 db/models.py
 Fleet Management System
 
-Full model rewrite:
-  - UUID primary keys throughout (str on Python side, uuid on DB side)
-  - first_name + last_name replacing username
-  - role as SQLAlchemy Enum (5 fleet roles)
-  - All fleet tables: trucks, trailers, drivers, trips, fuel, maintenance
+Changes in this revision:
+  - Every DateTime column changed to DateTime(timezone=True)
+    so PostgreSQL stores TIMESTAMPTZ and asyncpg never rejects
+    timezone-aware datetimes from the frontend.
+
+Affected columns — 47 total across 16 tables:
+  users               last_login_at, created_at, updated_at
+  user_oauth          expires_at, created_at
+  refresh_tokens      expires_at, created_at
+  trucks              insurance_expiry_date, inspection_expiry_date, created_at, updated_at
+  truck_documents     expiry_date, uploaded_at
+  service_records     service_date, created_at
+  trailers            insurance_expiry_date, inspection_expiry_date, created_at, updated_at
+  trailer_documents   expiry_date, uploaded_at
+  drivers             license_expiry_date, date_of_birth, hire_date, created_at, updated_at
+  driver_documents    expiry_date, uploaded_at
+  trips               scheduled_departure, scheduled_arrival, actual_departure,
+                      actual_arrival, created_at, updated_at
+  trip_location_pings recorded_at
+  fuel_logs           logged_at, created_at, updated_at
+  expenses            expense_date, created_at, updated_at
+  work_orders         scheduled_date, completed_date, created_at, updated_at
+  service_schedules   last_service_date, next_service_date, created_at, updated_at
+  system_settings     updated_at
 """
 
 import uuid
@@ -27,6 +46,12 @@ from db.base import Base
 
 def gen_uuid() -> str:
     return str(uuid.uuid4())
+
+
+# Shorthand so every column declaration stays on one line
+TZ  = DateTime(timezone=True)   # TIMESTAMPTZ — for application datetimes
+NTZ = DateTime(timezone=False)  # kept only if you ever need a naive column
+#  (nothing in this codebase uses NTZ; it's here for documentation only)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,16 +142,14 @@ class User(Base):
     is_verified:  Mapped[bool] = mapped_column(Boolean, default=False)
     phone:        Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     avatar_url:   Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    last_login_at:Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_login_at:Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)           # ← TZ
 
-    # Token columns
     email_verification_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     reset_password_token:     Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
-    # Relationships
     user_oauth:     Mapped[list["UserOAuth"]]    = relationship("UserOAuth", back_populates="user", cascade="all, delete-orphan")
     driver_profile: Mapped[Optional["Driver"]]   = relationship("Driver", back_populates="user", uselist=False)
 
@@ -141,8 +164,8 @@ class UserOAuth(Base):
     provider_email:   Mapped[str] = mapped_column(String(120))
     access_token:     Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     refresh_token:    Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    expires_at:       Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at:       Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at:       Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)       # ← TZ
+    created_at:       Mapped[datetime] = mapped_column(TZ, server_default=func.now())     # ← TZ
 
     user: Mapped[User] = relationship("User", back_populates="user_oauth")
 
@@ -154,12 +177,12 @@ class UserOAuth(Base):
 class RefreshTokens(Base):
     __tablename__ = "refresh_tokens"
 
-    id:         Mapped[str]  = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    token:      Mapped[str]  = mapped_column(String(500), unique=True, index=True)
-    user_id:    Mapped[str]  = mapped_column(String(36), ForeignKey("users.id"))
-    expires_at: Mapped[datetime] = mapped_column(DateTime)
-    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    id:         Mapped[str]      = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    token:      Mapped[str]      = mapped_column(String(500), unique=True, index=True)
+    user_id:    Mapped[str]      = mapped_column(String(36), ForeignKey("users.id"))
+    expires_at: Mapped[datetime] = mapped_column(TZ)                                      # ← TZ
+    is_revoked: Mapped[bool]     = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now())           # ← TZ
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -169,43 +192,42 @@ class RefreshTokens(Base):
 class Truck(Base):
     __tablename__ = "trucks"
 
-    id:                     Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
-    plate_number:           Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    make:                   Mapped[str] = mapped_column(String(80))
-    model:                  Mapped[str] = mapped_column(String(80))
-    year:                   Mapped[int] = mapped_column(Integer)
-    status:                 Mapped[str] = mapped_column(TruckStatusEnum, default="active")
+    id:                     Mapped[str]   = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    plate_number:           Mapped[str]   = mapped_column(String(20), unique=True, index=True)
+    make:                   Mapped[str]   = mapped_column(String(80))
+    model:                  Mapped[str]   = mapped_column(String(80))
+    year:                   Mapped[int]   = mapped_column(Integer)
+    status:                 Mapped[str]   = mapped_column(TruckStatusEnum, default="active")
     odometer_km:            Mapped[float] = mapped_column(Float, default=0.0)
-    fuel_type:              Mapped[str] = mapped_column(FuelTypeEnum, default="diesel")
-    vin:                    Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    color:                  Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    assigned_driver_id:     Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    current_trip_id:        Mapped[Optional[str]] = mapped_column(String(36), nullable=True)  # FK set after trips table
-    insurance_expiry_date:  Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    inspection_expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    notes:                  Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    fuel_type:              Mapped[str]   = mapped_column(FuelTypeEnum, default="diesel")
+    vin:                    Mapped[Optional[str]]      = mapped_column(String(50), nullable=True)
+    color:                  Mapped[Optional[str]]      = mapped_column(String(40), nullable=True)
+    assigned_driver_id:     Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    current_trip_id:        Mapped[Optional[str]]      = mapped_column(String(36), nullable=True)
+    insurance_expiry_date:  Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True) # ← TZ
+    inspection_expiry_date: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True) # ← TZ
+    notes:                  Mapped[Optional[str]]      = mapped_column(Text, nullable=True)
+    created_at:             Mapped[datetime] = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:             Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
-    # Relationships
-    documents:        Mapped[list["TruckDocument"]]   = relationship("TruckDocument", back_populates="truck", cascade="all, delete-orphan")
-    service_records:  Mapped[list["ServiceRecord"]]   = relationship("ServiceRecord", back_populates="truck", cascade="all, delete-orphan")
-    service_schedules:Mapped[list["ServiceSchedule"]] = relationship("ServiceSchedule", back_populates="truck", cascade="all, delete-orphan")
-    fuel_logs:        Mapped[list["FuelLog"]]         = relationship("FuelLog", back_populates="truck")
-    work_orders:      Mapped[list["WorkOrder"]]       = relationship("WorkOrder", back_populates="truck")
+    documents:         Mapped[list["TruckDocument"]]   = relationship("TruckDocument", back_populates="truck", cascade="all, delete-orphan")
+    service_records:   Mapped[list["ServiceRecord"]]   = relationship("ServiceRecord", back_populates="truck", cascade="all, delete-orphan")
+    service_schedules: Mapped[list["ServiceSchedule"]] = relationship("ServiceSchedule", back_populates="truck", cascade="all, delete-orphan")
+    fuel_logs:         Mapped[list["FuelLog"]]         = relationship("FuelLog", back_populates="truck")
+    work_orders:       Mapped[list["WorkOrder"]]       = relationship("WorkOrder", back_populates="truck")
 
 
 class TruckDocument(Base):
     __tablename__ = "truck_documents"
 
-    id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    truck_id:    Mapped[str] = mapped_column(String(36), ForeignKey("trucks.id"))
-    type:        Mapped[str] = mapped_column(VehicleDocTypeEnum)
-    file_name:   Mapped[str] = mapped_column(String(255))
-    file_url:    Mapped[str] = mapped_column(String(500))
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    id:          Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    truck_id:    Mapped[str]               = mapped_column(String(36), ForeignKey("trucks.id"))
+    type:        Mapped[str]               = mapped_column(VehicleDocTypeEnum)
+    file_name:   Mapped[str]               = mapped_column(String(255))
+    file_url:    Mapped[str]               = mapped_column(String(500))
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)            # ← TZ
+    uploaded_at: Mapped[datetime]           = mapped_column(TZ, server_default=func.now()) # ← TZ
+    uploaded_by: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
 
     truck: Mapped[Truck] = relationship("Truck", back_populates="documents")
 
@@ -221,8 +243,8 @@ class ServiceRecord(Base):
     cost:                Mapped[float] = mapped_column(Float, default=0.0)
     performed_by:        Mapped[str]   = mapped_column(String(36), ForeignKey("users.id"))
     work_order_id:       Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("work_orders.id"), nullable=True)
-    service_date:        Mapped[datetime] = mapped_column(DateTime)
-    created_at:          Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    service_date:        Mapped[datetime] = mapped_column(TZ)                             # ← TZ
+    created_at:          Mapped[datetime] = mapped_column(TZ, server_default=func.now())  # ← TZ
 
     truck: Mapped[Truck] = relationship("Truck", back_populates="service_records")
 
@@ -234,20 +256,20 @@ class ServiceRecord(Base):
 class Trailer(Base):
     __tablename__ = "trailers"
 
-    id:                     Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
-    plate_number:           Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    make:                   Mapped[str] = mapped_column(String(80))
-    model:                  Mapped[str] = mapped_column(String(80))
-    year:                   Mapped[int] = mapped_column(Integer)
-    status:                 Mapped[str] = mapped_column(TrailerStatusEnum, default="active")
-    type:                   Mapped[str] = mapped_column(TrailerTypeEnum)
-    capacity_tons:          Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    assigned_trip_id:       Mapped[Optional[str]]   = mapped_column(String(36), nullable=True)
-    insurance_expiry_date:  Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    inspection_expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    notes:                  Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    id:                     Mapped[str]   = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    plate_number:           Mapped[str]   = mapped_column(String(20), unique=True, index=True)
+    make:                   Mapped[str]   = mapped_column(String(80))
+    model:                  Mapped[str]   = mapped_column(String(80))
+    year:                   Mapped[int]   = mapped_column(Integer)
+    status:                 Mapped[str]   = mapped_column(TrailerStatusEnum, default="active")
+    type:                   Mapped[str]   = mapped_column(TrailerTypeEnum)
+    capacity_tons:          Mapped[Optional[float]]    = mapped_column(Float, nullable=True)
+    assigned_trip_id:       Mapped[Optional[str]]      = mapped_column(String(36), nullable=True)
+    insurance_expiry_date:  Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True) # ← TZ
+    inspection_expiry_date: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True) # ← TZ
+    notes:                  Mapped[Optional[str]]      = mapped_column(Text, nullable=True)
+    created_at:             Mapped[datetime] = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:             Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
     documents: Mapped[list["TrailerDocument"]] = relationship("TrailerDocument", back_populates="trailer", cascade="all, delete-orphan")
 
@@ -255,14 +277,14 @@ class Trailer(Base):
 class TrailerDocument(Base):
     __tablename__ = "trailer_documents"
 
-    id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    trailer_id:  Mapped[str] = mapped_column(String(36), ForeignKey("trailers.id"))
-    type:        Mapped[str] = mapped_column(VehicleDocTypeEnum)
-    file_name:   Mapped[str] = mapped_column(String(255))
-    file_url:    Mapped[str] = mapped_column(String(500))
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    id:          Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    trailer_id:  Mapped[str]               = mapped_column(String(36), ForeignKey("trailers.id"))
+    type:        Mapped[str]               = mapped_column(VehicleDocTypeEnum)
+    file_name:   Mapped[str]               = mapped_column(String(255))
+    file_url:    Mapped[str]               = mapped_column(String(500))
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)            # ← TZ
+    uploaded_at: Mapped[datetime]           = mapped_column(TZ, server_default=func.now()) # ← TZ
+    uploaded_by: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
 
     trailer: Mapped[Trailer] = relationship("Trailer", back_populates="documents")
 
@@ -274,44 +296,44 @@ class TrailerDocument(Base):
 class Driver(Base):
     __tablename__ = "drivers"
 
-    id:                     Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
-    user_id:                Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), unique=True)
-    first_name:             Mapped[str] = mapped_column(String(80))
-    last_name:              Mapped[str] = mapped_column(String(80))
-    email:                  Mapped[str] = mapped_column(String(120))
-    phone:                  Mapped[str] = mapped_column(String(30))
-    status:                 Mapped[str] = mapped_column(DriverStatusEnum, default="active")
-    license_number:         Mapped[str] = mapped_column(String(50), unique=True)
-    license_class:          Mapped[str] = mapped_column(String(20))
-    license_expiry_date:    Mapped[datetime] = mapped_column(DateTime)
-    date_of_birth:          Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    national_id:            Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    address:                Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    emergency_contact_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    emergency_contact_phone:Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    hire_date:              Mapped[datetime] = mapped_column(DateTime)
-    avatar_url:             Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    notes:                  Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:             Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    id:                      Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    user_id:                 Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"), unique=True)
+    first_name:              Mapped[str]               = mapped_column(String(80))
+    last_name:               Mapped[str]               = mapped_column(String(80))
+    email:                   Mapped[str]               = mapped_column(String(120))
+    phone:                   Mapped[str]               = mapped_column(String(30))
+    status:                  Mapped[str]               = mapped_column(DriverStatusEnum, default="active")
+    license_number:          Mapped[str]               = mapped_column(String(50), unique=True)
+    license_class:           Mapped[str]               = mapped_column(String(20))
+    license_expiry_date:     Mapped[datetime]           = mapped_column(TZ)               # ← TZ
+    date_of_birth:           Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True) # ← TZ
+    national_id:             Mapped[Optional[str]]      = mapped_column(String(50), nullable=True)
+    address:                 Mapped[Optional[str]]      = mapped_column(Text, nullable=True)
+    emergency_contact_name:  Mapped[Optional[str]]      = mapped_column(String(120), nullable=True)
+    emergency_contact_phone: Mapped[Optional[str]]      = mapped_column(String(30), nullable=True)
+    hire_date:               Mapped[datetime]           = mapped_column(TZ)               # ← TZ
+    avatar_url:              Mapped[Optional[str]]      = mapped_column(String(500), nullable=True)
+    notes:                   Mapped[Optional[str]]      = mapped_column(Text, nullable=True)
+    created_at:              Mapped[datetime]           = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:              Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
-    user:      Mapped["User"]                  = relationship("User", back_populates="driver_profile")
-    documents: Mapped[list["DriverDocument"]]  = relationship("DriverDocument", back_populates="driver", cascade="all, delete-orphan")
-    fuel_logs: Mapped[list["FuelLog"]]         = relationship("FuelLog", back_populates="driver")
-    trips:     Mapped[list["Trip"]]            = relationship("Trip", back_populates="assigned_driver")
+    user:      Mapped["User"]                 = relationship("User", back_populates="driver_profile")
+    documents: Mapped[list["DriverDocument"]] = relationship("DriverDocument", back_populates="driver", cascade="all, delete-orphan")
+    fuel_logs: Mapped[list["FuelLog"]]        = relationship("FuelLog", back_populates="driver")
+    trips:     Mapped[list["Trip"]]           = relationship("Trip", back_populates="assigned_driver")
 
 
 class DriverDocument(Base):
     __tablename__ = "driver_documents"
 
-    id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    driver_id:   Mapped[str] = mapped_column(String(36), ForeignKey("drivers.id"))
-    type:        Mapped[str] = mapped_column(DriverDocTypeEnum)
-    file_name:   Mapped[str] = mapped_column(String(255))
-    file_url:    Mapped[str] = mapped_column(String(500))
-    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
+    id:          Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    driver_id:   Mapped[str]               = mapped_column(String(36), ForeignKey("drivers.id"))
+    type:        Mapped[str]               = mapped_column(DriverDocTypeEnum)
+    file_name:   Mapped[str]               = mapped_column(String(255))
+    file_url:    Mapped[str]               = mapped_column(String(500))
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)            # ← TZ
+    uploaded_at: Mapped[datetime]           = mapped_column(TZ, server_default=func.now()) # ← TZ
+    uploaded_by: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
 
     driver: Mapped[Driver] = relationship("Driver", back_populates="documents")
 
@@ -323,29 +345,48 @@ class DriverDocument(Base):
 class Trip(Base):
     __tablename__ = "trips"
 
-    id:                  Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
-    trip_number:         Mapped[str] = mapped_column(String(20), unique=True, index=True)  # e.g. TRP-00123
-    status:              Mapped[str] = mapped_column(TripStatusEnum, default="pending")
-    origin:              Mapped[str] = mapped_column(String(200))
-    destination:         Mapped[str] = mapped_column(String(200))
-    scheduled_departure: Mapped[datetime] = mapped_column(DateTime)
-    scheduled_arrival:   Mapped[datetime] = mapped_column(DateTime)
-    actual_departure:    Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    actual_arrival:      Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    distance_km:         Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    cargo_description:   Mapped[Optional[str]]   = mapped_column(Text, nullable=True)
-    cargo_weight_tons:   Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    assigned_truck_id:   Mapped[Optional[str]]   = mapped_column(String(36), ForeignKey("trucks.id"), nullable=True)
-    assigned_trailer_id: Mapped[Optional[str]]   = mapped_column(String(36), ForeignKey("trailers.id"), nullable=True)
-    assigned_driver_id:  Mapped[Optional[str]]   = mapped_column(String(36), ForeignKey("drivers.id"), nullable=True)
-    dispatched_by:       Mapped[str]             = mapped_column(String(36), ForeignKey("users.id"))
-    notes:               Mapped[Optional[str]]   = mapped_column(Text, nullable=True)
-    created_at:          Mapped[datetime]         = mapped_column(DateTime, server_default=func.now())
-    updated_at:          Mapped[datetime]         = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    id:                  Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    trip_number:         Mapped[str]               = mapped_column(String(20), unique=True, index=True)
+    status:              Mapped[str]               = mapped_column(TripStatusEnum, default="pending")
+    origin:              Mapped[str]               = mapped_column(String(200))
+    destination:         Mapped[str]               = mapped_column(String(200))
+    scheduled_departure: Mapped[datetime]           = mapped_column(TZ)                   # ← TZ
+    scheduled_arrival:   Mapped[datetime]           = mapped_column(TZ)                   # ← TZ
+    actual_departure:    Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)    # ← TZ
+    actual_arrival:      Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)    # ← TZ
+    distance_km:         Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    cargo_description:   Mapped[Optional[str]]     = mapped_column(Text, nullable=True)
+    cargo_weight_tons:   Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    assigned_truck_id:   Mapped[Optional[str]]     = mapped_column(String(36), ForeignKey("trucks.id"), nullable=True)
+    assigned_trailer_id: Mapped[Optional[str]]     = mapped_column(String(36), ForeignKey("trailers.id"), nullable=True)
+    assigned_driver_id:  Mapped[Optional[str]]     = mapped_column(String(36), ForeignKey("drivers.id"), nullable=True)
+    dispatched_by:       Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    notes:               Mapped[Optional[str]]     = mapped_column(Text, nullable=True)
+    origin_lat:          Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    origin_lng:          Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    destination_lat:     Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    destination_lng:     Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    created_at:          Mapped[datetime]           = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:          Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
     assigned_driver:  Mapped[Optional["Driver"]]  = relationship("Driver", back_populates="trips")
     assigned_truck:   Mapped[Optional["Truck"]]   = relationship("Truck")
     assigned_trailer: Mapped[Optional["Trailer"]] = relationship("Trailer")
+
+
+class TripLocationPing(Base):
+    __tablename__ = "trip_location_pings"
+
+    id:          Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    trip_id:     Mapped[str]               = mapped_column(String(36), ForeignKey("trips.id"), index=True)
+    lat:         Mapped[float]             = mapped_column(Float)
+    lng:         Mapped[float]             = mapped_column(Float)
+    recorded_at: Mapped[datetime]           = mapped_column(TZ, server_default=func.now()) # ← TZ
+    recorded_by: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    accuracy_m:  Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    notes:       Mapped[Optional[str]]     = mapped_column(Text, nullable=True)
+
+    trip: Mapped["Trip"] = relationship("Trip")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -367,9 +408,9 @@ class FuelLog(Base):
     station_name:     Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     station_location: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     receipt_url:      Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    logged_at:        Mapped[datetime] = mapped_column(DateTime)
-    created_at:       Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:       Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    logged_at:        Mapped[datetime] = mapped_column(TZ)                                # ← TZ
+    created_at:       Mapped[datetime] = mapped_column(TZ, server_default=func.now())     # ← TZ
+    updated_at:       Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
     truck:  Mapped[Truck]  = relationship("Truck", back_populates="fuel_logs")
     driver: Mapped[Driver] = relationship("Driver", back_populates="fuel_logs")
@@ -387,10 +428,10 @@ class Expense(Base):
     driver_id:    Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("drivers.id"), nullable=True)
     trip_id:      Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("trips.id"), nullable=True)
     receipt_url:  Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    expense_date: Mapped[datetime] = mapped_column(DateTime)
+    expense_date: Mapped[datetime] = mapped_column(TZ)                                   # ← TZ
     created_by:   Mapped[str]   = mapped_column(String(36), ForeignKey("users.id"))
-    created_at:   Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:   Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at:   Mapped[datetime] = mapped_column(TZ, server_default=func.now())        # ← TZ
+    updated_at:   Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -400,28 +441,28 @@ class Expense(Base):
 class WorkOrder(Base):
     __tablename__ = "work_orders"
 
-    id:                   Mapped[str]   = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
-    work_order_number:    Mapped[str]   = mapped_column(String(20), unique=True, index=True)  # e.g. WO-00045
-    truck_id:             Mapped[str]   = mapped_column(String(36), ForeignKey("trucks.id"))
-    assigned_mechanic_id: Mapped[str]   = mapped_column(String(36), ForeignKey("users.id"))
-    status:               Mapped[str]   = mapped_column(WorkOrderStatusEnum, default="pending")
-    priority:             Mapped[str]   = mapped_column(WorkOrderPriorityEnum, default="medium")
-    title:                Mapped[str]   = mapped_column(String(200))
-    description:          Mapped[str]   = mapped_column(Text)
-    odometer_at_service:  Mapped[Optional[float]]    = mapped_column(Float, nullable=True)
-    scheduled_date:       Mapped[datetime]            = mapped_column(DateTime)
-    completed_date:       Mapped[Optional[datetime]]  = mapped_column(DateTime, nullable=True)
-    estimated_cost:       Mapped[Optional[float]]     = mapped_column(Float, nullable=True)
-    actual_cost:          Mapped[Optional[float]]     = mapped_column(Float, nullable=True)
-    currency:             Mapped[str]   = mapped_column(String(3), default="USD")
-    notes:                Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_by:           Mapped[str]   = mapped_column(String(36), ForeignKey("users.id"))
-    created_at:           Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:           Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    id:                   Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    work_order_number:    Mapped[str]               = mapped_column(String(20), unique=True, index=True)
+    truck_id:             Mapped[str]               = mapped_column(String(36), ForeignKey("trucks.id"))
+    assigned_mechanic_id: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    status:               Mapped[str]               = mapped_column(WorkOrderStatusEnum, default="pending")
+    priority:             Mapped[str]               = mapped_column(WorkOrderPriorityEnum, default="medium")
+    title:                Mapped[str]               = mapped_column(String(200))
+    description:          Mapped[str]               = mapped_column(Text)
+    odometer_at_service:  Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    scheduled_date:       Mapped[datetime]           = mapped_column(TZ)                  # ← TZ
+    completed_date:       Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)   # ← TZ
+    estimated_cost:       Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    actual_cost:          Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    currency:             Mapped[str]               = mapped_column(String(3), default="USD")
+    notes:                Mapped[Optional[str]]     = mapped_column(Text, nullable=True)
+    created_by:           Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    created_at:           Mapped[datetime]           = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:           Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
-    truck:           Mapped["Truck"]                  = relationship("Truck", back_populates="work_orders")
-    parts:           Mapped[list["WorkOrderPart"]]    = relationship("WorkOrderPart", back_populates="work_order", cascade="all, delete-orphan")
-    service_records: Mapped[list["ServiceRecord"]]    = relationship("ServiceRecord", back_populates=None, foreign_keys="ServiceRecord.work_order_id")
+    truck:           Mapped["Truck"]               = relationship("Truck", back_populates="work_orders")
+    parts:           Mapped[list["WorkOrderPart"]] = relationship("WorkOrderPart", back_populates="work_order", cascade="all, delete-orphan")
+    service_records: Mapped[list["ServiceRecord"]] = relationship("ServiceRecord", back_populates=None, foreign_keys="ServiceRecord.work_order_id")
 
 
 class WorkOrderPart(Base):
@@ -442,19 +483,90 @@ class WorkOrderPart(Base):
 class ServiceSchedule(Base):
     __tablename__ = "service_schedules"
 
-    id:                    Mapped[str]  = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    truck_id:              Mapped[str]  = mapped_column(String(36), ForeignKey("trucks.id"))
-    service_type:          Mapped[str]  = mapped_column(String(100))
-    interval_type:         Mapped[str]  = mapped_column(ServiceIntervalEnum)
-    interval_value:        Mapped[int]  = mapped_column(Integer)
-    last_service_date:     Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_service_odometer: Mapped[Optional[float]]    = mapped_column(Float, nullable=True)
-    next_service_date:     Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    next_service_odometer: Mapped[Optional[float]]    = mapped_column(Float, nullable=True)
-    reminder_days_before:  Mapped[int]  = mapped_column(Integer, default=7)
-    is_active:             Mapped[bool] = mapped_column(Boolean, default=True)
-    created_by:            Mapped[str]  = mapped_column(String(36), ForeignKey("users.id"))
-    created_at:            Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at:            Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    id:                    Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    truck_id:              Mapped[str]               = mapped_column(String(36), ForeignKey("trucks.id"))
+    service_type:          Mapped[str]               = mapped_column(String(100))
+    interval_type:         Mapped[str]               = mapped_column(ServiceIntervalEnum)
+    interval_value:        Mapped[int]               = mapped_column(Integer)
+    last_service_date:     Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)  # ← TZ
+    last_service_odometer: Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    next_service_date:     Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)  # ← TZ
+    next_service_odometer: Mapped[Optional[float]]   = mapped_column(Float, nullable=True)
+    reminder_days_before:  Mapped[int]               = mapped_column(Integer, default=7)
+    is_active:             Mapped[bool]              = mapped_column(Boolean, default=True)
+    created_by:            Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    created_at:            Mapped[datetime]           = mapped_column(TZ, server_default=func.now())           # ← TZ
+    updated_at:            Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
 
     truck: Mapped[Truck] = relationship("Truck", back_populates="service_schedules")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SYSTEM SETTINGS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SystemSettings(Base):
+    __tablename__ = "system_settings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: "global")
+
+    org_name:     Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    org_timezone: Mapped[str]           = mapped_column(String(50), default="UTC")
+    date_format:  Mapped[str]           = mapped_column(String(20), default="ISO")
+
+    currency:      Mapped[str] = mapped_column(String(3), default="USD")
+    fuel_unit:     Mapped[str] = mapped_column(String(20), default="gallons")
+    distance_unit: Mapped[str] = mapped_column(String(20), default="miles")
+
+    maintenance_warning_days:     Mapped[int] = mapped_column(Integer, default=7)
+    license_expiry_warning_days:  Mapped[int] = mapped_column(Integer, default=30)
+    document_expiry_warning_days: Mapped[int] = mapped_column(Integer, default=14)
+
+    email_alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    maintenance_alerts:   Mapped[bool] = mapped_column(Boolean, default=True)
+    trip_status_alerts:   Mapped[bool] = mapped_column(Boolean, default=True)
+
+    theme:            Mapped[str] = mapped_column(String(20), default="system")
+    default_language: Mapped[str] = mapped_column(String(10), default="en")
+
+    updated_at: Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())  # ← TZ
+    updated_by: Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+
+    updater: Mapped[Optional["User"]] = relationship("User", foreign_keys=[updated_by])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTIFICATIONS
+# ─────────────────────────────────────────────────────────────────────────────
+
+NotificationTypeEnum = SAEnum(
+    "trip_assigned",
+    "trip_status_changed",
+    "work_order_assigned",
+    "maintenance_due",
+    "document_expiring",
+    "fuel_logged",
+    "expense_submitted",
+    "system",
+    name="notificationtype",
+)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    user_id:     Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    type:        Mapped[str]            = mapped_column(NotificationTypeEnum)
+    title:       Mapped[str]            = mapped_column(String(200))
+    message:     Mapped[str]            = mapped_column(Text)
+    is_read:     Mapped[bool]           = mapped_column(Boolean, default=False)
+
+    # Optional link back to the entity that triggered this notification
+    entity_type: Mapped[Optional[str]]  = mapped_column(String(50), nullable=True)   # "trip" | "work_order" | "truck" | "driver"
+    entity_id:   Mapped[Optional[str]]  = mapped_column(String(36), nullable=True)
+    action_url:  Mapped[Optional[str]]  = mapped_column(String(300), nullable=True)  # frontend route, e.g. "/trips/abc123"
+
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+    recipient: Mapped["User"] = relationship("User", foreign_keys=[user_id])

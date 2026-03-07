@@ -2,11 +2,16 @@ import axios from 'axios'
 
 /**
  * Central axios instance.
+ *
+ * baseURL resolution:
+ *   - Local dev (no docker): VITE_API_URL unset → baseURL = '' → Vite proxy handles /auth and /api/v1
+ *   - Docker:                VITE_API_URL = 'http://web:8000' → docker service name
+ *   - Production (Vercel):   VITE_API_URL = 'https://your-app.onrender.com' → direct to Render
+ *
  * withCredentials: true — browser attaches the HttpOnly cookie on every request.
- * Without this, cookies are silently ignored and every request returns 401.
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL ?? '',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
@@ -20,6 +25,7 @@ const api = axios.create({
  * 3. If refresh also fails, redirect to login
  *
  * The user never sees an error for a simple token expiry.
+ * All hooks using this instance get this protection automatically.
  */
 api.interceptors.response.use(
   (response) => response,

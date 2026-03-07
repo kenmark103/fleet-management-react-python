@@ -6,39 +6,39 @@
  * The unread count is polled every 30 seconds for the bell badge.
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { API_BASE_URL } from "../lib/constants";
-import type { PaginatedResponse, ApiResponse } from "../types/api";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api from '../lib/api'
+import type { PaginatedResponse, ApiResponse } from '../types/api'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type NotificationType =
-  | "trip_assigned"
-  | "trip_status_changed"
-  | "work_order_assigned"
-  | "maintenance_due"
-  | "document_expiring"
-  | "fuel_logged"
-  | "expense_submitted"
-  | "system";
+  | 'trip_assigned'
+  | 'trip_status_changed'
+  | 'work_order_assigned'
+  | 'maintenance_due'
+  | 'document_expiring'
+  | 'fuel_logged'
+  | 'expense_submitted'
+  | 'system'
 
 export interface Notification {
-  id:          string;
-  userId:      string;
-  type:        NotificationType;
-  title:       string;
-  message:     string;
-  isRead:      boolean;
-  entityType:  string | null;
-  entityId:    string | null;
-  actionUrl:   string | null;
-  createdAt:   string;
+  id:         string
+  userId:     string
+  type:       NotificationType
+  title:      string
+  message:    string
+  isRead:     boolean
+  entityType: string | null
+  entityId:   string | null
+  actionUrl:  string | null
+  createdAt:  string
 }
 
 export interface UnreadCount {
-  count: number;
+  count: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,26 +46,9 @@ export interface UnreadCount {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const notificationKeys = {
-  all:         ["notifications"] as const,
-  list:        (params: object) => ["notifications", "list", params] as const,
-  unreadCount: ["notifications", "unread-count"] as const,
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// API HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
+  all:         ['notifications'] as const,
+  list:        (params: object) => ['notifications', 'list', params] as const,
+  unreadCount: ['notifications', 'unread-count'] as const,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,13 +58,12 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 export function useUnreadCount() {
   return useQuery({
     queryKey: notificationKeys.unreadCount,
-    queryFn: () =>
-      apiFetch<ApiResponse<UnreadCount>>("/notifications/unread-count").then(
-        (r) => r.data.count
-      ),
-    refetchInterval: 30_000,   // poll every 30s
+    queryFn:  () =>
+      api.get<ApiResponse<UnreadCount>>('/api/v1/notifications/unread-count')
+        .then(r => r.data.data.count),
+    refetchInterval: 30_000,
     staleTime:       15_000,
-  });
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,22 +75,22 @@ export function useNotifications({
   pageSize = 20,
   unreadOnly = false,
 }: {
-  page?:       number;
-  pageSize?:   number;
-  unreadOnly?: boolean;
+  page?:       number
+  pageSize?:   number
+  unreadOnly?: boolean
 } = {}) {
   const params = new URLSearchParams({
-    page:       String(page),
-    page_size:  String(pageSize),
-    ...(unreadOnly && { unread_only: "true" }),
-  });
+    page:      String(page),
+    page_size: String(pageSize),
+    ...(unreadOnly && { unread_only: 'true' }),
+  })
 
   return useQuery({
-    queryKey: notificationKeys.list({ page, pageSize, unreadOnly }),
-    queryFn:  () =>
-      apiFetch<PaginatedResponse<Notification>>(`/notifications?${params}`),
+    queryKey:        notificationKeys.list({ page, pageSize, unreadOnly }),
+    queryFn:         () =>
+      api.get<PaginatedResponse<Notification>>(`/api/v1/notifications?${params}`).then(r => r.data),
     placeholderData: (prev) => prev,
-  });
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,17 +98,14 @@ export function useNotifications({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useMarkRead() {
-  const qc = useQueryClient();
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      apiFetch(`/notifications/${id}/read`, {
-        method: "PATCH",
-        body: JSON.stringify({ isRead: true }),
-      }),
+      api.patch(`/api/v1/notifications/${id}/read`, { isRead: true }).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: notificationKeys.all });
+      qc.invalidateQueries({ queryKey: notificationKeys.all })
     },
-  });
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,14 +113,13 @@ export function useMarkRead() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useMarkAllRead() {
-  const qc = useQueryClient();
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: () =>
-      apiFetch("/notifications/read-all", { method: "PATCH" }),
+    mutationFn: () => api.patch('/api/v1/notifications/read-all').then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: notificationKeys.all });
+      qc.invalidateQueries({ queryKey: notificationKeys.all })
     },
-  });
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,12 +127,11 @@ export function useMarkAllRead() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useDeleteNotification() {
-  const qc = useQueryClient();
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/notifications/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => api.delete(`/api/v1/notifications/${id}`).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: notificationKeys.all });
+      qc.invalidateQueries({ queryKey: notificationKeys.all })
     },
-  });
+  })
 }

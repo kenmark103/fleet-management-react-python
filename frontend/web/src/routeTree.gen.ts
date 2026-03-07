@@ -41,6 +41,7 @@ import { Route as AuthFleetTrailersTrailerIdRouteImport } from './routes/_auth/f
 import { Route as AuthDriversDriverIdEditRouteImport } from './routes/_auth/drivers/$driverId/edit'
 import { Route as AuthMaintenanceWorkOrdersWorkOrderIdIndexRouteImport } from './routes/_auth/maintenance/work-orders/$workOrderId/index'
 import { Route as AuthFuelLogsLogIdIndexRouteImport } from './routes/_auth/fuel/logs/$logId/index'
+import { Route as AuthFuelExpensesExpenseIdIndexRouteImport } from './routes/_auth/fuel/expenses/$expenseId/index'
 import { Route as AuthSettingsUsersUserIdEditRouteImport } from './routes/_auth/settings/users/$userId/edit'
 import { Route as AuthMaintenanceWorkOrdersWorkOrderIdEditRouteImport } from './routes/_auth/maintenance/work-orders/$workOrderId/edit'
 import { Route as AuthMaintenanceSchedulesScheduleIdEditRouteImport } from './routes/_auth/maintenance/schedules/$scheduleId/edit'
@@ -210,6 +211,12 @@ const AuthFuelLogsLogIdIndexRoute = AuthFuelLogsLogIdIndexRouteImport.update({
   path: '/fuel/logs/$logId/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthFuelExpensesExpenseIdIndexRoute =
+  AuthFuelExpensesExpenseIdIndexRouteImport.update({
+    id: '/fuel/expenses/$expenseId/',
+    path: '/fuel/expenses/$expenseId/',
+    getParentRoute: () => AuthRoute,
+  } as any)
 const AuthSettingsUsersUserIdEditRoute =
   AuthSettingsUsersUserIdEditRouteImport.update({
     id: '/settings/users/$userId/edit',
@@ -276,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
+  '/fuel/expenses/$expenseId/': typeof AuthFuelExpensesExpenseIdIndexRoute
   '/fuel/logs/$logId/': typeof AuthFuelLogsLogIdIndexRoute
   '/maintenance/work-orders/$workOrderId/': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
@@ -314,6 +322,7 @@ export interface FileRoutesByTo {
   '/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
+  '/fuel/expenses/$expenseId': typeof AuthFuelExpensesExpenseIdIndexRoute
   '/fuel/logs/$logId': typeof AuthFuelLogsLogIdIndexRoute
   '/maintenance/work-orders/$workOrderId': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
@@ -354,6 +363,7 @@ export interface FileRoutesById {
   '/_auth/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/_auth/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/_auth/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
+  '/_auth/fuel/expenses/$expenseId/': typeof AuthFuelExpensesExpenseIdIndexRoute
   '/_auth/fuel/logs/$logId/': typeof AuthFuelLogsLogIdIndexRoute
   '/_auth/maintenance/work-orders/$workOrderId/': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/maintenance/schedules/$scheduleId/edit'
     | '/maintenance/work-orders/$workOrderId/edit'
     | '/settings/users/$userId/edit'
+    | '/fuel/expenses/$expenseId/'
     | '/fuel/logs/$logId/'
     | '/maintenance/work-orders/$workOrderId/'
   fileRoutesByTo: FileRoutesByTo
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/maintenance/schedules/$scheduleId/edit'
     | '/maintenance/work-orders/$workOrderId/edit'
     | '/settings/users/$userId/edit'
+    | '/fuel/expenses/$expenseId'
     | '/fuel/logs/$logId'
     | '/maintenance/work-orders/$workOrderId'
   id:
@@ -471,6 +483,7 @@ export interface FileRouteTypes {
     | '/_auth/maintenance/schedules/$scheduleId/edit'
     | '/_auth/maintenance/work-orders/$workOrderId/edit'
     | '/_auth/settings/users/$userId/edit'
+    | '/_auth/fuel/expenses/$expenseId/'
     | '/_auth/fuel/logs/$logId/'
     | '/_auth/maintenance/work-orders/$workOrderId/'
   fileRoutesById: FileRoutesById
@@ -708,6 +721,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthFuelLogsLogIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/fuel/expenses/$expenseId/': {
+      id: '/_auth/fuel/expenses/$expenseId/'
+      path: '/fuel/expenses/$expenseId'
+      fullPath: '/fuel/expenses/$expenseId/'
+      preLoaderRoute: typeof AuthFuelExpensesExpenseIdIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/settings/users/$userId/edit': {
       id: '/_auth/settings/users/$userId/edit'
       path: '/settings/users/$userId/edit'
@@ -814,6 +834,7 @@ interface AuthRouteChildren {
   AuthMaintenanceSchedulesScheduleIdEditRoute: typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   AuthMaintenanceWorkOrdersWorkOrderIdEditRoute: typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   AuthSettingsUsersUserIdEditRoute: typeof AuthSettingsUsersUserIdEditRoute
+  AuthFuelExpensesExpenseIdIndexRoute: typeof AuthFuelExpensesExpenseIdIndexRoute
   AuthFuelLogsLogIdIndexRoute: typeof AuthFuelLogsLogIdIndexRoute
   AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute: typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
@@ -849,6 +870,7 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthMaintenanceWorkOrdersWorkOrderIdEditRoute:
     AuthMaintenanceWorkOrdersWorkOrderIdEditRoute,
   AuthSettingsUsersUserIdEditRoute: AuthSettingsUsersUserIdEditRoute,
+  AuthFuelExpensesExpenseIdIndexRoute: AuthFuelExpensesExpenseIdIndexRoute,
   AuthFuelLogsLogIdIndexRoute: AuthFuelLogsLogIdIndexRoute,
   AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute:
     AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute,

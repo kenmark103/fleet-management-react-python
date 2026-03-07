@@ -22,12 +22,12 @@ import { ExpenseForm as EditExpenseForm } from "../../../../../components/forms/
 import { useExpense, useUpdateExpense } from "../../../../../hooks/useFuel";
 import { toast as editToast } from "sonner";
 
-export const ExpenseEditRoute = createEditRoute("/_auth/fuel/expenses/$expenseId/edit")({
+export const Route = createEditRoute("/_auth/fuel/expenses/$expenseId/")({
   component: EditExpensePage,
 });
 
 function EditExpensePage() {
-  const { expenseId }  = ExpenseEditRoute.useParams();
+  const { expenseId }  = Route.useParams();
   const navigate       = useEditNav();
   const { data: expense, isLoading } = useExpense(expenseId);
   const updateExpense  = useUpdateExpense(expenseId);

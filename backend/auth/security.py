@@ -1,10 +1,10 @@
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 
-pwdContext = CryptContext(schemes=["argon2"], deprecated="auto")
-
+pwd_context = PasswordHash((Argon2Hasher(),))
 
 def hash_password(password: str) -> str:
-    return pwdContext.hash(password)
+    return pwd_context.hash(password)
 
-def verify_password(plain_password: str, hashed_password: str)->bool:
-    return pwdContext.verify(plain_password, hashed_password)
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)

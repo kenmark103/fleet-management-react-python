@@ -1,5 +1,3 @@
-from typing import Annotated
-
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import Select
 from auth.tokens import decode_token
@@ -8,6 +6,8 @@ from db.models import User
 
 async def get_current_user(request: Request, db: DB):
     token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(401, "Not authenticated")
     payload = decode_token(token)
     if not payload:
         raise HTTPException(401, 'Invalid Token')

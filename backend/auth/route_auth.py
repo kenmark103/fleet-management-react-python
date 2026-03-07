@@ -72,36 +72,6 @@ async def login(request: Request , response: Response, login_request: LoginReque
         user=UserResponse.model_validate(user),
     )
 
-
-# ─── POST /auth/register ──────────────────────────────────────────────────────
-@router.post("/register", response_model=UserResponse)
-async def register(request: RegisterRequest, db: DB, background_tasks: BackgroundTasks):
-    """
-    Creates a new user. In this system only ADMINs register users —
-    there is no public self-service signup. Protect this endpoint with
-    an ADMIN role dependency when settings/users UI is built (Phase 8).
-    """
-    result = await db.execute(select(User).where(User.email == request.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email is already registered")
-
-    email_verification_token = generate_email_verification_token()
-    user = User(
-        email=request.email,
-        password=hash_password(request.password),
-        first_name=request.first_name,
-        last_name=request.last_name,
-        role=request.role,
-        phone=request.phone,
-        email_verification_token=email_verification_token,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    # background_tasks.add_task(send_verification_email, request.email, email_verification_token)
-    return user
-
-
 # ─── POST /auth/logout ────────────────────────────────────────────────────────
 @router.post("/logout")
 def logout(response: Response):
@@ -127,7 +97,7 @@ async def refresh(request: Request, response: Response):
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_MAX_AGE,
+        max_age=settings.ACCESS_TOKEN_MAX_AGE_SECONDS,
         path="/",
     )
     return {"message": "Token refreshed"}
