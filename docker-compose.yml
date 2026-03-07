@@ -1,0 +1,53 @@
+services:
+  web:
+    build: ./backend
+    container_name: fastapi_app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - ./backend/.env.docker
+    networks:
+      - fleet_network
+
+  frontend:
+    build: ./frontend/web
+    container_name: react_app
+    command: sh -c "npm install && npm run dev -- --host"
+    volumes:
+      - ./frontend/web:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
+    environment:
+      - VITE_PROXY_TARGET=http://web:8000
+    networks:
+      - fleet_network
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qwerty
+      POSTGRES_DB: fleetms
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - fleet_network
+
+networks:
+  fleet_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
