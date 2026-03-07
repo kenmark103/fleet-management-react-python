@@ -31,8 +31,10 @@ async def run_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_db_tables()
-    await seed()
+    if settings.ENVIRONMENT in ("development", "docker"):
+        await create_db_tables()
+        await seed()
+
     task = asyncio.create_task(daily_expiry_check_loop())
     log.info("Daily expiry check task launched.")
 
