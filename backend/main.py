@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 import uvicorn
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -22,12 +24,17 @@ from scripts.seed_admin import seed
 
 log = logging.getLogger(__name__)
 settings = get_settings()
+
+def run_migrations():
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.ENVIRONMENT == "development":
+    if settings.ENVIRONMENT in ("development", "docker"):
         await create_db_tables()
-    elif settings.ENVIRONMENT in ("docker", "production"):
-        pass
+    elif settings.ENVIRONMENT == "production":
+        run_migrations()
 
     await seed()
     task = asyncio.create_task(daily_expiry_check_loop())
