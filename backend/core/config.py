@@ -84,14 +84,6 @@ class Settings(BaseSettings):
     # ── Misc ──────────────────────────────────────────────────────────────────
     NGROK_AUTHTOKEN: str | None = None
 
-    # ── CORS ──────────────────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://localhost:3000",
-        "https://fleet-management-react-python.vercel.app",
-    ]
-
     model_config = SettingsConfigDict(
         env_file=(".env",),
         extra="ignore",
