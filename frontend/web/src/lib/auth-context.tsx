@@ -1,13 +1,17 @@
-import { createContext, useContext, useState, useEffect} from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import { getMe, loginUser, logoutUser, type User, type LoginCredentials } from '@/lib/auth-api'
 import type { ReactNode } from 'react'
 
 interface AuthContextType {
-  user: User | null
-  isLoading: boolean
+  user:            User | null
+  isLoading:       boolean
   isAuthenticated: boolean
-  login: (credentials: LoginCredentials) => Promise<void>
-  logout: () => Promise<void>
+  login:           (credentials: LoginCredentials) => Promise<void>
+  logout:          () => Promise<void>
+  // ✅ Exposed so profile page (and any other component) can sync local
+  //    updates (name, avatar) back into the auth context without a full
+  //    /auth/me re-fetch.
+  setUser:         (user: User | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -23,7 +27,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
  * The _auth layout shows a spinner during this time.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user,      setUser]      = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -34,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (credentials: LoginCredentials) => {
-    const user = await loginUser(credentials)
-    setUser(user)
+    const loggedIn = await loginUser(credentials)
+    setUser(loggedIn)
   }
 
   const logout = async () => {
@@ -45,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isAuthenticated: !!user, login, logout }}
+      value={{ user, isLoading, isAuthenticated: !!user, login, logout, setUser }}
     >
       {children}
     </AuthContext.Provider>
