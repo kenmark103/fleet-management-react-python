@@ -126,8 +126,10 @@ function KpiGrid() {
     {
       show:    can("dashboard:view-cost-summary"),
       title:   "Monthly Fuel Cost",
-      value:   fuelKpi.isLoading ? "—" : formatCurrency(fuelKpi.data?.totalFuelCost ?? 0, true),
-      sub:     fuelKpi.data ? `${(fuelKpi.data.totalLitres ?? 0).toLocaleString()} L total` : undefined,
+      value:   fuelKpi.isLoading ? "—" : formatCurrency(fuelKpi.data?.kpis.totalFuelCost ?? 0, true),
+      sub:     fuelKpi.data
+        ? `+ ${formatCurrency(fuelKpi.data.kpis.totalExpenses ?? 0, true)} expenses`
+        : undefined,
       icon:    DollarSign,
       color:   "purple" as const,
       loading: fuelKpi.isLoading,
@@ -466,22 +468,35 @@ function CostSummaryWidget() {
   const { formatCurrency }  = useAppSettings();
   const { data, isLoading } = useDashboardCostSummary();
 
-  const monthly    = data?.monthlyBreakdown ?? [];
-  const latest     = monthly[monthly.length - 1];
-  const last6      = monthly.slice(-6);
-
   if (isLoading) return (
     <Card><CardContent className="p-5"><WidgetSkeleton rows={4} /></CardContent></Card>
   );
-  if (!latest) return (
+  if (!data?.kpis) return (
     <Card><CardContent className="p-5"><EmptyState icon={TrendingUp} message="No cost data yet" /></CardContent></Card>
   );
 
-  const total      = latest.totalCost + latest.totalExpenses;
-  const maxMonthly = Math.max(...last6.map(m => m.totalCost + m.totalExpenses), 1);
+  const { kpis, monthlyFuelCosts, monthlyExpenses, currency } = data;
+
+  // Merge fuel + expense arrays on month for the sparkline
+  const allMonths = Array.from(
+    new Set([
+      ...(monthlyFuelCosts ?? []).map(m => m.month),
+      ...(monthlyExpenses  ?? []).map(m => m.month),
+    ])
+  ).sort();
+
+  const last6 = allMonths.slice(-6).map(month => ({
+    month,
+    total:
+      ((monthlyFuelCosts ?? []).find(m => m.month === month)?.totalCost  ?? 0) +
+      ((monthlyExpenses  ?? []).find(m => m.month === month)?.totalAmount ?? 0),
+  }));
+
+  const maxVal = Math.max(...last6.map(m => m.total), 1);
+
   const bars = [
-    { label: "Fuel",     value: latest.totalCost,    color: "bg-blue-500" },
-    { label: "Expenses", value: latest.totalExpenses, color: "bg-amber-500" },
+    { label: "Fuel",     value: kpis.totalFuelCost, color: "bg-blue-500" },
+    { label: "Expenses", value: kpis.totalExpenses,  color: "bg-amber-500" },
   ];
 
   return (
@@ -490,36 +505,46 @@ function CostSummaryWidget() {
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
           Cost Summary
-          <span className="ml-auto text-xs font-normal text-muted-foreground">{latest.month}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <p className="text-2xl font-bold tabular-nums">{formatCurrency(total)}</p>
-          <p className="text-xs text-muted-foreground">Total this month</p>
+          <p className="text-2xl font-bold tabular-nums">{formatCurrency(kpis.totalCombined, currency)}</p>
+          <p className="text-xs text-muted-foreground">Total (fuel + expenses)</p>
         </div>
+
+        {/* Proportional stacked bar */}
         <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
           {bars.map((b) => (
-            <div key={b.label} className={`h-full ${b.color}`} style={{ width: `${total ? (b.value / total) * 100 : 0}%` }} />
+            <div
+              key={b.label}
+              className={`h-full ${b.color}`}
+              style={{ width: `${kpis.totalCombined ? (b.value / kpis.totalCombined) * 100 : 0}%` }}
+            />
           ))}
         </div>
+
         <div className="space-y-1.5">
           {bars.map((b) => (
-            <div key={b.label} className="flex items-center justify-between text-sm">
+            <div key={b.label} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`h-2 w-2 rounded-full ${b.color}`} />
                 <span className="text-muted-foreground text-xs">{b.label}</span>
               </div>
-              <span className="tabular-nums font-medium text-foreground text-xs">{formatCurrency(b.value)}</span>
+              <span className="tabular-nums font-medium text-foreground text-xs">
+                {formatCurrency(b.value, currency)}
+              </span>
             </div>
           ))}
         </div>
+
+        {/* 6-month sparkline */}
         {last6.length > 1 && (
           <div>
             <p className="mb-1.5 text-xs text-muted-foreground">6-month trend</p>
             <div className="flex h-10 items-end gap-1">
               {last6.map((entry, i) => {
-                const pct      = ((entry.totalCost + entry.totalExpenses) / maxMonthly) * 100;
+                const pct      = (entry.total / maxVal) * 100;
                 const isLatest = i === last6.length - 1;
                 return (
                   <div key={entry.month} className="flex flex-1 flex-col items-center gap-1">

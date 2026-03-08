@@ -68,15 +68,20 @@ export interface DashWorkOrder {
   scheduledDate:    string
 }
 
+// Mirrors the real FuelReport shape from routers/fuel.py:
+//   report.kpis.*            — top-level totals
+//   report.monthlyFuelCosts  — [{month, totalCost}]
+//   report.monthlyExpenses   — [{month, totalAmount}]
 export interface DashFuelReport {
-  totalFuelCost:    number
-  totalLitres:      number
-  monthlyBreakdown: Array<{
-    month:         string
-    totalCost:     number
-    totalFuel:     number
+  kpis: {
+    totalFuelCost: number
     totalExpenses: number
-  }>
+    totalCombined: number
+    avgCostPerKm:  number | null
+  }
+  monthlyFuelCosts: Array<{ month: string; totalCost: number }>
+  monthlyExpenses:  Array<{ month: string; totalAmount: number }>
+  currency:         string
 }
 
 export interface DashTruck {
