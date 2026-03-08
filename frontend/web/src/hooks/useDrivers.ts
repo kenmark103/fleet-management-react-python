@@ -20,10 +20,12 @@ import {
   useQueryClient,
   keepPreviousData,
 } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import api from '../lib/api'
 import type {
   Driver,
   DriverCreate,
+  DriverAdminCreate,
   DriverUpdate,
   DriverDocument,
   DriverDocumentCreate,
@@ -105,12 +107,27 @@ export function useDriver(driverId: string | undefined) {
 export function useCreateDriver() {
   const qc = useQueryClient()
 
-  return useMutation<ApiResponse<Driver>, Error, DriverCreate>({
-    mutationFn: (body) => api.post<ApiResponse<Driver>>('/api/v1/drivers', body).then(r => r.data),
-    onSuccess: () => {
+  return useMutation<ApiResponse<Driver>, Error, DriverAdminCreate>({
+    mutationFn: (body) =>
+      api.post<ApiResponse<Driver>>('/api/v1/drivers', body).then(r => r.data),
+
+    onSuccess: (res) => {
+      const driver = res.data
+
+      // ✅ Seed the detail cache immediately — if the user navigates to the
+      //    driver's profile right after creation it won't need a network round-trip.
+      qc.setQueryData(driverKeys.detail(driver.id), res)
+
+      // Invalidate list + summary so they re-fetch in the background.
+      // The page has already navigated away by the time this runs, so the
+      // user never waits on it — this is what was causing the Docker delay.
       qc.invalidateQueries({ queryKey: driverKeys.lists() })
       qc.invalidateQueries({ queryKey: driverKeys.summary() })
+
+      toast.success(`${driver.firstName} ${driver.lastName} added successfully`)
     },
+
+    onError: (e) => toast.error(e.message),
   })
 }
 
@@ -122,12 +139,18 @@ export function useUpdateDriver(driverId: string) {
   const qc = useQueryClient()
 
   return useMutation<ApiResponse<Driver>, Error, DriverUpdate>({
-    mutationFn: (body) => api.patch<ApiResponse<Driver>>(`/api/v1/drivers/${driverId}`, body).then(r => r.data),
+    mutationFn: (body) =>
+      api.patch<ApiResponse<Driver>>(`/api/v1/drivers/${driverId}`, body).then(r => r.data),
+
     onSuccess: (res) => {
+      const driver = res.data
       qc.setQueryData(driverKeys.detail(driverId), res)
       qc.invalidateQueries({ queryKey: driverKeys.lists() })
       qc.invalidateQueries({ queryKey: driverKeys.summary() })
+      toast.success(`${driver.firstName} ${driver.lastName} updated`)
     },
+
+    onError: (e) => toast.error(e.message),
   })
 }
 
@@ -139,12 +162,17 @@ export function useDeleteDriver() {
   const qc = useQueryClient()
 
   return useMutation<ApiResponse<{ id: string }>, Error, string>({
-    mutationFn: (driverId) => api.delete<ApiResponse<{ id: string }>>(`/api/v1/drivers/${driverId}`).then(r => r.data),
+    mutationFn: (driverId) =>
+      api.delete<ApiResponse<{ id: string }>>(`/api/v1/drivers/${driverId}`).then(r => r.data),
+
     onSuccess: (_res, driverId) => {
       qc.removeQueries({ queryKey: driverKeys.detail(driverId) })
       qc.invalidateQueries({ queryKey: driverKeys.lists() })
       qc.invalidateQueries({ queryKey: driverKeys.summary() })
+      toast.success('Driver removed')
     },
+
+    onError: (e) => toast.error(e.message),
   })
 }
 
@@ -155,7 +183,8 @@ export function useDeleteDriver() {
 export function useDriverDocuments(driverId: string | undefined) {
   return useQuery<ApiResponse<DriverDocument[]>>({
     queryKey: driverKeys.documents(driverId!),
-    queryFn:  () => api.get<ApiResponse<DriverDocument[]>>(`/api/v1/drivers/${driverId}/documents`).then(r => r.data),
+    queryFn:  () =>
+      api.get<ApiResponse<DriverDocument[]>>(`/api/v1/drivers/${driverId}/documents`).then(r => r.data),
     enabled:  !!driverId,
   })
 }
@@ -206,7 +235,8 @@ export function useDriverTrips(
 
   return useQuery<PaginatedResponse<DriverTripHistoryItem>>({
     queryKey:        driverKeys.trips(driverId!, { page, pageSize }),
-    queryFn:         () => api.get<PaginatedResponse<DriverTripHistoryItem>>(`/api/v1/drivers/${driverId}/trips?${searchParams}`).then(r => r.data),
+    queryFn:         () =>
+      api.get<PaginatedResponse<DriverTripHistoryItem>>(`/api/v1/drivers/${driverId}/trips?${searchParams}`).then(r => r.data),
     enabled:         !!driverId,
     placeholderData: keepPreviousData,
   })

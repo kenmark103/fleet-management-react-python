@@ -27,8 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { API_BASE_URL } from "../../../lib/constants";
 import { usePermission } from "../../../hooks/usePermission";
+// ✅ Use the hook — goes through the api axios instance (correct baseURL +
+//    withCredentials + interceptors) instead of raw fetch with API_BASE_URL.
+import { useCreateDriver } from "../../../hooks/useDrivers";
 
 export const Route = createFileRoute("/_auth/drivers/new")({
   component: NewDriverPage,
@@ -121,6 +123,14 @@ function NewDriverPage() {
   const { can } = usePermission();
   const navigate = useNavigate();
 
+  // ✅ Hook must be called unconditionally (Rules of Hooks).
+  //    The permission guard renders below after the hook call.
+  const createDriver = useCreateDriver();
+
+  const [form,       setForm]       = useState<FormState>(EMPTY);
+  const [errors,     setErrors]     = useState<Partial<Record<keyof FormState, string>>>({});
+  const [showPass,   setShowPass]   = useState(false);
+
   if (!can("drivers:create")) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
@@ -129,12 +139,6 @@ function NewDriverPage() {
       </div>
     );
   }
-
-  const [form,       setForm]       = useState<FormState>(EMPTY);
-  const [errors,     setErrors]     = useState<Partial<Record<keyof FormState, string>>>({});
-  const [showPass,   setShowPass]   = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [apiError,   setApiError]   = useState<string | null>(null);
 
   const set =
     (field: keyof FormState) =>
@@ -170,49 +174,36 @@ function NewDriverPage() {
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!validate()) return;
-    setSubmitting(true);
-    setApiError(null);
 
-    try {
-      const payload = {
-        firstName:             form.firstName.trim(),
-        lastName:              form.lastName.trim(),
-        email:                 form.email.trim(),
-        phone:                 form.phone.trim(),
-        status:                form.status,
-        hireDate:              new Date(form.hireDate).toISOString(),
-        licenseNumber:         form.licenseNumber.trim(),
-        licenseClass:          form.licenseClass.trim(),
-        licenseExpiryDate:     new Date(form.licenseExpiryDate).toISOString(),
-        tempPassword:          form.tempPassword,
-        // Optional fields — only include if filled
-        ...(form.dateOfBirth           && { dateOfBirth:           new Date(form.dateOfBirth).toISOString() }),
-        ...(form.nationalId.trim()     && { nationalId:            form.nationalId.trim() }),
-        ...(form.address.trim()        && { address:               form.address.trim() }),
-        ...(form.emergencyContactName.trim()  && { emergencyContactName:  form.emergencyContactName.trim() }),
-        ...(form.emergencyContactPhone.trim() && { emergencyContactPhone: form.emergencyContactPhone.trim() }),
-        ...(form.notes.trim()          && { notes:                 form.notes.trim() }),
-      };
+    const payload = {
+      firstName:             form.firstName.trim(),
+      lastName:              form.lastName.trim(),
+      email:                 form.email.trim(),
+      phone:                 form.phone.trim(),
+      status:                form.status,
+      hireDate:              new Date(form.hireDate).toISOString(),
+      licenseNumber:         form.licenseNumber.trim(),
+      licenseClass:          form.licenseClass.trim(),
+      licenseExpiryDate:     new Date(form.licenseExpiryDate).toISOString(),
+      tempPassword:          form.tempPassword,
+      // Optional fields — only include if filled
+      ...(form.dateOfBirth                  && { dateOfBirth:           new Date(form.dateOfBirth).toISOString() }),
+      ...(form.nationalId.trim()            && { nationalId:            form.nationalId.trim() }),
+      ...(form.address.trim()               && { address:               form.address.trim() }),
+      ...(form.emergencyContactName.trim()  && { emergencyContactName:  form.emergencyContactName.trim() }),
+      ...(form.emergencyContactPhone.trim() && { emergencyContactPhone: form.emergencyContactPhone.trim() }),
+      ...(form.notes.trim()                 && { notes:                 form.notes.trim() }),
+    };
 
-      const res = await fetch(`${API_BASE_URL}/drivers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Failed to create driver");
-      }
-
-      navigate({ to: "/drivers" });
-    } catch (e: any) {
-      setApiError(e.message);
-    } finally {
-      setSubmitting(false);
-    }
+    // ✅ Navigate immediately on success — don't wait for query invalidation
+    //    to finish. The list re-fetches in the background (useCreateDriver's
+    //    onSuccess invalidates driverKeys.lists() + driverKeys.summary()).
+    //    This is what makes the Docker UX feel snappy instead of hanging.
+    createDriver.mutate(payload, {
+      onSuccess: () => navigate({ to: "/drivers" }),
+    });
   };
 
   const inputCls = (field: keyof FormState) =>
@@ -377,10 +368,10 @@ function NewDriverPage() {
         </div>
       </div>
 
-      {/* API error */}
-      {apiError && (
+      {/* API error — sourced from the mutation now */}
+      {createDriver.isError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {apiError}
+          {createDriver.error?.message ?? "Failed to create driver"}
         </div>
       )}
 
@@ -389,9 +380,9 @@ function NewDriverPage() {
         <Button variant="outline" asChild>
           <Link to="/drivers">Cancel</Link>
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
+        <Button onClick={handleSubmit} disabled={createDriver.isPending}>
           <UserPlus className="h-4 w-4 mr-2" />
-          {submitting ? "Creating…" : "Create Driver"}
+          {createDriver.isPending ? "Creating…" : "Create Driver"}
         </Button>
       </div>
     </div>

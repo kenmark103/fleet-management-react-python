@@ -41,6 +41,10 @@ export interface Driver {
   updatedAt:             string;
 }
 
+/**
+ * Used when a Driver record already has a User account and you're
+ * linking them — userId is required in this case.
+ */
 export interface DriverCreate {
   userId:                string;
   firstName:             string;
@@ -52,6 +56,32 @@ export interface DriverCreate {
   licenseClass:          string;
   licenseExpiryDate:     string;
   hireDate:              string;
+  dateOfBirth?:          string;
+  nationalId?:           string;
+  address?:              string;
+  emergencyContactName?: string;
+  emergencyContactPhone?:string;
+  avatarUrl?:            string;
+  notes?:                string;
+}
+
+/**
+ * Used by the admin "Add New Driver" form (POST /api/v1/drivers).
+ * The backend atomically creates the User (role=DRIVER) + Driver profile,
+ * so userId is NOT sent — it is generated server-side.
+ * tempPassword is included so the backend can set the initial login credential.
+ */
+export interface DriverAdminCreate {
+  firstName:             string;
+  lastName:              string;
+  email:                 string;
+  phone:                 string;
+  status:                DriverStatus;
+  licenseNumber:         string;
+  licenseClass:          string;
+  licenseExpiryDate:     string;
+  hireDate:              string;
+  tempPassword:          string;
   dateOfBirth?:          string;
   nationalId?:           string;
   address?:              string;

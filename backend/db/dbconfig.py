@@ -14,7 +14,7 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
-    echo=settings.ENVIRONMENT == "development",  # logs SQL in dev only
+    echo=settings.ENVIRONMENT == "development",
 )
 
 async_session = async_sessionmaker(
