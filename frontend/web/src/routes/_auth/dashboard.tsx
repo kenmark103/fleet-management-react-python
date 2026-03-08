@@ -2,146 +2,48 @@
  * routes/_auth/dashboard.tsx
  * Fleet Management System — Phase 9
  *
- * Full real-data dashboard. All mock data removed.
- * Each widget fetches independently — failures are isolated.
- *
- * API calls:
- *   GET /api/v1/fleet/summary           → KPI: trucks, trailers
- *   GET /api/v1/drivers/summary         → KPI: drivers on duty
- *   GET /api/v1/trips?page_size=6       → Recent trips widget (role-filtered by API)
- *   GET /api/v1/trips?status=en-route   → KPI: active trips count
- *   GET /api/v1/maintenance/work-orders?status=pending   → KPI + alerts
- *   GET /api/v1/maintenance/work-orders?status=overdue   → alerts
- *   GET /api/v1/maintenance/schedules?due_soon=true      → upcoming service
- *   GET /api/v1/fuel/reports            → cost summary widget
- *   GET /api/v1/fleet/trucks?limit=100  → expiry alerts (client-filtered)
- *   GET /api/v1/drivers?page_size=50    → license expiry alerts
+ * Pure UI layer. All data-fetching lives in hooks/useDashboard.ts.
+ * Each widget is isolated — a failing widget never breaks its neighbours.
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import {
   Truck, MapPin, Users, Wrench, DollarSign, Container,
-  AlertTriangle, Clock, Fuel, Activity, TrendingUp,
-  FileText, ArrowUpRight, ArrowDownRight, Minus,
+  AlertTriangle, Clock, Activity, TrendingUp,
   ChevronRight, Loader2,
 } from "lucide-react";
-import { useAuth }       from "../../lib/auth-context";
-import { usePermission } from "../../hooks/usePermission";
+import { useAuth }        from "../../lib/auth-context";
+import { usePermission }  from "../../hooks/usePermission";
 import { useAppSettings } from "../../lib/settings-context";
-import { PageHeader }    from "../../components/molecules/PageHeader";
-import { StatusBadge }   from "../../components/atoms/StatusBadge";
+import { PageHeader }     from "../../components/molecules/PageHeader";
+import { StatusBadge }    from "../../components/atoms/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Badge }         from "../../components/ui/badge";
-import { Button }        from "../../components/ui/button";
+import { Badge }          from "../../components/ui/badge";
+import { Button }         from "../../components/ui/button";
 import { formatDate, isExpiringSoon, isExpired } from "../../lib/utils";
-import { API_BASE_URL }  from "../../lib/constants";
-import type { StatusValue } from "../../lib/constants";
-import type { PaginatedResponse, ApiResponse } from "../../types/api";
+import {
+  useKpiData,
+  useDashboardTrips,
+  useDashboardActivity,
+  useDashboardExpiryAlerts,
+  useDashboardMaintenanceAlerts,
+  useDashboardCostSummary,
+} from "../../hooks/useDashboard";
 
 export const Route = createFileRoute("/_auth/dashboard")({ component: DashboardPage });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPES (minimal — only fields we actually use)
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface FleetSummary {
-  totalTrucks:       number;
-  activeTrucks:      number;
-  inactiveTrucks:    number;
-  inProgressTrucks:  number;
-  totalTrailers:     number;
-  activeTrailers:    number;
-  inactiveTrailers:  number;
-}
-
-interface DriverSummary {
-  totalDrivers:           number;
-  activeDrivers:          number;
-  inactiveDrivers:        number;
-  expiringLicenses30d:    number;
-}
-
-interface Trip {
-  id:                  string;
-  tripNumber:          string;
-  status:              StatusValue;
-  origin:              string;
-  destination:         string;
-  scheduledDeparture:  string;
-  assignedDriverName:  string | null;
-  assignedTruckPlate:  string | null;
-}
-
-interface WorkOrderItem {
-  id:                string;
-  workOrderNumber:   string;
-  title:             string;
-  priority:          "low" | "medium" | "high" | "critical";
-  status:            string;
-  truckPlateNumber:  string | null;
-  scheduledDate:     string;
-}
-
-interface ServiceScheduleItem {
-  id:              string;
-  serviceType:     string;
-  nextServiceDate: string | null;
-  truckPlateNumber: string | null;
-}
-
-interface FuelReport {
-  totalFuelCost:   number;
-  totalLitres:     number;
-  monthlyBreakdown: Array<{
-    month:         string;
-    totalCost:     number;
-    totalFuel:     number;
-    totalExpenses: number;
-  }>;
-}
-
-interface TruckItem {
-  id:                    string;
-  plateNumber:           string;
-  make:                  string;
-  insuranceExpiryDate:   string | null;
-  inspectionExpiryDate:  string | null;
-}
-
-interface DriverItem {
-  id:                string;
-  firstName:         string;
-  lastName:          string;
-  licenseExpiryDate: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FETCH HELPER
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function api<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
-  if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DashboardPage() {
-  const { user }             = useAuth();
-  const { can }              = usePermission();
-  const { formatCurrency }   = useAppSettings();
-
-  const greeting  = getGreeting();
-  const firstName = user?.firstName ?? "there";
+  const { user } = useAuth();
+  const { can }  = usePermission();
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${greeting}, ${firstName} 👋`}
+        title={`${getGreeting()}, ${user?.firstName ?? "there"} 👋`}
         subtitle={formatDate(new Date().toISOString(), "long")}
       />
       <KpiGrid />
@@ -165,14 +67,24 @@ function DashboardPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function KpiGrid() {
-  const { can }             = usePermission();
-  const { formatCurrency }  = useAppSettings();
+  const { can }            = usePermission();
+  const { formatCurrency } = useAppSettings();
 
-  const fleet   = useQuery({ queryKey: ["fleet-summary"],   queryFn: () => api<FleetSummary>("/fleet/summary"),    enabled: can("dashboard:view-kpi") });
-  const drivers = useQuery({ queryKey: ["driver-summary"],  queryFn: () => api<ApiResponse<DriverSummary>>("/drivers/summary").then(r => r.data), enabled: can("drivers:view-list") });
-  const activeTrips = useQuery({ queryKey: ["active-trips-count"], queryFn: () => api<PaginatedResponse<Trip>>("/trips?status=en-route&page_size=1").then(r => r.meta.totalItems), enabled: can("trips:view-all") || can("trips:view-own") });
-  const pendingWOs  = useQuery({ queryKey: ["pending-wo-count"],   queryFn: () => api<PaginatedResponse<WorkOrderItem>>("/maintenance/work-orders?status=pending&page_size=1").then(r => r.meta.totalItems), enabled: can("maintenance:view-all") });
-  const fuelReport  = useQuery({ queryKey: ["fuel-report-kpi"],    queryFn: () => api<ApiResponse<FuelReport>>("/fuel/reports").then(r => r.data), enabled: can("dashboard:view-cost-summary") });
+  const { fleet, drivers, activeTripsCount, pendingWoCount, fuelKpi } = useKpiData({
+    canViewKpi:     can("dashboard:view-kpi"),
+    canViewDrivers: can("drivers:view-list"),
+    canViewTrips:   can("trips:view-all") || can("trips:view-own"),
+    canViewMaint:   can("maintenance:view-all"),
+    canViewCosts:   can("dashboard:view-cost-summary"),
+  });
+
+  const COLOR_MAP = {
+    blue:    { bg: "bg-blue-50 dark:bg-blue-950/30",       icon: "text-blue-500",    border: "border-blue-100 dark:border-blue-900" },
+    green:   { bg: "bg-emerald-50 dark:bg-emerald-950/30", icon: "text-emerald-500", border: "border-emerald-100 dark:border-emerald-900" },
+    amber:   { bg: "bg-amber-50 dark:bg-amber-950/30",     icon: "text-amber-500",   border: "border-amber-100 dark:border-amber-900" },
+    purple:  { bg: "bg-purple-50 dark:bg-purple-950/30",   icon: "text-purple-500",  border: "border-purple-100 dark:border-purple-900" },
+    default: { bg: "bg-gray-50 dark:bg-gray-900/30",       icon: "text-gray-500",    border: "border-gray-100 dark:border-gray-800" },
+  };
 
   const cards = [
     {
@@ -187,11 +99,11 @@ function KpiGrid() {
     {
       show:    can("trips:view-all") || can("trips:view-own"),
       title:   "Active Trips",
-      value:   activeTrips.isLoading ? "—" : String(activeTrips.data ?? 0),
+      value:   activeTripsCount.isLoading ? "—" : String(activeTripsCount.data ?? 0),
       sub:     "currently en-route",
       icon:    MapPin,
       color:   "green" as const,
-      loading: activeTrips.isLoading,
+      loading: activeTripsCount.isLoading,
     },
     {
       show:    can("drivers:view-list"),
@@ -205,20 +117,20 @@ function KpiGrid() {
     {
       show:    can("maintenance:view-all"),
       title:   "Pending Work Orders",
-      value:   pendingWOs.isLoading ? "—" : String(pendingWOs.data ?? 0),
+      value:   pendingWoCount.isLoading ? "—" : String(pendingWoCount.data ?? 0),
       sub:     "awaiting attention",
       icon:    Wrench,
       color:   "amber" as const,
-      loading: pendingWOs.isLoading,
+      loading: pendingWoCount.isLoading,
     },
     {
       show:    can("dashboard:view-cost-summary"),
       title:   "Monthly Fuel Cost",
-      value:   fuelReport.isLoading ? "—" : formatCurrency(fuelReport.data?.totalFuelCost ?? 0, true),
-      sub:     fuelReport.data ? `${(fuelReport.data.totalLitres ?? 0).toLocaleString()} L total` : undefined,
+      value:   fuelKpi.isLoading ? "—" : formatCurrency(fuelKpi.data?.totalFuelCost ?? 0, true),
+      sub:     fuelKpi.data ? `${(fuelKpi.data.totalLitres ?? 0).toLocaleString()} L total` : undefined,
       icon:    DollarSign,
       color:   "purple" as const,
-      loading: fuelReport.isLoading,
+      loading: fuelKpi.isLoading,
     },
     {
       show:    can("dashboard:view-kpi"),
@@ -233,18 +145,10 @@ function KpiGrid() {
 
   if (cards.length === 0) return null;
 
-  const COLOR_MAP = {
-    blue:    { bg: "bg-blue-50 dark:bg-blue-950/30",    icon: "text-blue-500",   border: "border-blue-100 dark:border-blue-900" },
-    green:   { bg: "bg-emerald-50 dark:bg-emerald-950/30", icon: "text-emerald-500", border: "border-emerald-100 dark:border-emerald-900" },
-    amber:   { bg: "bg-amber-50 dark:bg-amber-950/30",  icon: "text-amber-500",  border: "border-amber-100 dark:border-amber-900" },
-    purple:  { bg: "bg-purple-50 dark:bg-purple-950/30", icon: "text-purple-500", border: "border-purple-100 dark:border-purple-900" },
-    default: { bg: "bg-gray-50 dark:bg-gray-900/30",    icon: "text-gray-500",   border: "border-gray-100 dark:border-gray-800" },
-  };
-
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
       {cards.map((card) => {
-        const c = COLOR_MAP[card.color];
+        const c    = COLOR_MAP[card.color];
         const Icon = card.icon;
         return (
           <Card key={card.title} className={`border ${c.border} overflow-hidden`}>
@@ -276,10 +180,7 @@ function KpiGrid() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TripsWidget() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["dashboard-trips"],
-    queryFn:  () => api<PaginatedResponse<Trip>>("/trips?page_size=6"),
-  });
+  const { data, isLoading, isError } = useDashboardTrips();
   const trips = data?.data ?? [];
 
   return (
@@ -291,9 +192,7 @@ function TripsWidget() {
             Recent Trips
           </CardTitle>
           <Button variant="ghost" size="sm" asChild className="text-xs h-7 gap-1 px-2">
-            <Link to="/trips">
-              View all <ChevronRight className="h-3 w-3" />
-            </Link>
+            <Link to="/trips">View all <ChevronRight className="h-3 w-3" /></Link>
           </Button>
         </div>
       </CardHeader>
@@ -315,9 +214,7 @@ function TripsWidget() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-foreground">
-                      {trip.tripNumber}
-                    </span>
+                    <span className="font-mono text-xs font-semibold text-foreground">{trip.tripNumber}</span>
                     <StatusBadge status={trip.status} />
                   </div>
                   <p className="mt-0.5 truncate text-sm text-muted-foreground">
@@ -326,9 +223,7 @@ function TripsWidget() {
                 </div>
                 <div className="shrink-0 text-right hidden sm:block">
                   <p className="text-xs text-muted-foreground">{trip.assignedDriverName ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground/60">
-                    {formatDate(trip.scheduledDeparture, "short")}
-                  </p>
+                  <p className="text-xs text-muted-foreground/60">{formatDate(trip.scheduledDeparture, "short")}</p>
                 </div>
               </Link>
             ))}
@@ -356,27 +251,20 @@ function TripsSkeleton() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACTIVITY WIDGET  — using recent work orders + trips as activity feed
+// ACTIVITY WIDGET
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ActivityWidget() {
-  const trips = useQuery({
-    queryKey: ["activity-trips"],
-    queryFn:  () => api<PaginatedResponse<Trip>>("/trips?page_size=4"),
-  });
-  const workOrders = useQuery({
-    queryKey: ["activity-work-orders"],
-    queryFn:  () => api<PaginatedResponse<WorkOrderItem>>("/maintenance/work-orders?page_size=4"),
-  });
+  const { trips, workOrders } = useDashboardActivity();
 
   type ActivityItem = {
-    id:          string;
-    icon:        React.ElementType;
-    colorClass:  string;
-    text:        string;
-    sub:         string;
-    ts:          string;
-  };
+    id:         string
+    icon:       React.ElementType
+    colorClass: string
+    text:       string
+    sub:        string
+    ts:         string
+  }
 
   const items: ActivityItem[] = [
     ...(trips.data?.data ?? []).map(t => ({
@@ -441,23 +329,9 @@ function ActivityWidget() {
 
 function ExpiryAlertsWidget() {
   const WARN_DAYS = 30;
+  const { trucks, drivers } = useDashboardExpiryAlerts();
 
-  const trucks = useQuery({
-    queryKey: ["expiry-trucks"],
-    queryFn:  () => api<TruckItem[]>("/fleet/trucks?limit=100"),
-  });
-  const drivers = useQuery({
-    queryKey: ["expiry-drivers"],
-    queryFn:  () => api<PaginatedResponse<DriverItem>>("/drivers?page_size=50").then(r => r.data),
-  });
-
-  type ExpiryItem = {
-    id:         string;
-    entity:     string;
-    type:       string;
-    expiryDate: string;
-    daysLeft:   number;
-  };
+  type ExpiryItem = { id: string; entity: string; type: string; expiryDate: string; daysLeft: number }
 
   const alerts: ExpiryItem[] = [];
 
@@ -482,7 +356,6 @@ function ExpiryAlertsWidget() {
   alerts.sort((a, b) => a.daysLeft - b.daysLeft);
 
   const urgencyClass = (days: number) => {
-    if (days <= 0)  return "bg-red-100 text-red-700 border-red-200";
     if (days <= 7)  return "bg-red-100 text-red-700 border-red-200";
     if (days <= 14) return "bg-orange-100 text-orange-700 border-orange-200";
     return "bg-yellow-100 text-yellow-700 border-yellow-200";
@@ -495,9 +368,7 @@ function ExpiryAlertsWidget() {
           <Clock className="h-4 w-4 text-muted-foreground" />
           Expiry Alerts
           {alerts.length > 0 && (
-            <Badge variant="destructive" className="ml-auto text-xs">
-              {alerts.length}
-            </Badge>
+            <Badge variant="destructive" className="ml-auto text-xs">{alerts.length}</Badge>
           )}
         </CardTitle>
       </CardHeader>
@@ -539,14 +410,7 @@ const PRIORITY_STYLES: Record<string, string> = {
 };
 
 function MaintenanceAlertsWidget() {
-  const pending = useQuery({
-    queryKey: ["maint-alerts-pending"],
-    queryFn:  () => api<PaginatedResponse<WorkOrderItem>>("/maintenance/work-orders?status=pending&page_size=5"),
-  });
-  const overdue = useQuery({
-    queryKey: ["maint-alerts-overdue"],
-    queryFn:  () => api<PaginatedResponse<WorkOrderItem>>("/maintenance/work-orders?status=overdue&page_size=5"),
-  });
+  const { pending, overdue } = useDashboardMaintenanceAlerts();
 
   const items = [
     ...(overdue.data?.data ?? []).map(wo => ({ ...wo, _overdue: true })),
@@ -576,9 +440,7 @@ function MaintenanceAlertsWidget() {
             <div key={wo.id} className="flex items-start justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2.5">
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{wo.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {wo.truckPlateNumber ?? "—"} · {wo.workOrderNumber}
-                </p>
+                <p className="text-xs text-muted-foreground">{wo.truckPlateNumber ?? "—"} · {wo.workOrderNumber}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${PRIORITY_STYLES[wo.priority] ?? PRIORITY_STYLES.medium}`}>
@@ -601,39 +463,25 @@ function MaintenanceAlertsWidget() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CostSummaryWidget() {
-  const { formatCurrency } = useAppSettings();
+  const { formatCurrency }  = useAppSettings();
+  const { data, isLoading } = useDashboardCostSummary();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["fuel-report-dashboard"],
-    queryFn:  () => api<ApiResponse<FuelReport>>("/fuel/reports").then(r => r.data),
-  });
-
-  const monthly = data?.monthlyBreakdown ?? [];
-  const latest  = monthly[monthly.length - 1];
-  const last6   = monthly.slice(-6);
+  const monthly    = data?.monthlyBreakdown ?? [];
+  const latest     = monthly[monthly.length - 1];
+  const last6      = monthly.slice(-6);
 
   if (isLoading) return (
-    <Card>
-      <CardContent className="p-5">
-        <WidgetSkeleton rows={4} />
-      </CardContent>
-    </Card>
+    <Card><CardContent className="p-5"><WidgetSkeleton rows={4} /></CardContent></Card>
   );
-
   if (!latest) return (
-    <Card>
-      <CardContent className="p-5">
-        <EmptyState icon={TrendingUp} message="No cost data yet" />
-      </CardContent>
-    </Card>
+    <Card><CardContent className="p-5"><EmptyState icon={TrendingUp} message="No cost data yet" /></CardContent></Card>
   );
 
-  const total     = latest.totalCost + latest.totalExpenses;
+  const total      = latest.totalCost + latest.totalExpenses;
   const maxMonthly = Math.max(...last6.map(m => m.totalCost + m.totalExpenses), 1);
-
   const bars = [
-    { label: "Fuel",     value: latest.totalCost,     color: "bg-blue-500" },
-    { label: "Expenses", value: latest.totalExpenses,  color: "bg-amber-500" },
+    { label: "Fuel",     value: latest.totalCost,    color: "bg-blue-500" },
+    { label: "Expenses", value: latest.totalExpenses, color: "bg-amber-500" },
   ];
 
   return (
@@ -650,14 +498,11 @@ function CostSummaryWidget() {
           <p className="text-2xl font-bold tabular-nums">{formatCurrency(total)}</p>
           <p className="text-xs text-muted-foreground">Total this month</p>
         </div>
-
-        {/* Stacked bar */}
         <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
           {bars.map((b) => (
             <div key={b.label} className={`h-full ${b.color}`} style={{ width: `${total ? (b.value / total) * 100 : 0}%` }} />
           ))}
         </div>
-
         <div className="space-y-1.5">
           {bars.map((b) => (
             <div key={b.label} className="flex items-center justify-between text-sm">
@@ -665,22 +510,17 @@ function CostSummaryWidget() {
                 <div className={`h-2 w-2 rounded-full ${b.color}`} />
                 <span className="text-muted-foreground text-xs">{b.label}</span>
               </div>
-              <span className="tabular-nums font-medium text-foreground text-xs">
-                {formatCurrency(b.value)}
-              </span>
+              <span className="tabular-nums font-medium text-foreground text-xs">{formatCurrency(b.value)}</span>
             </div>
           ))}
         </div>
-
-        {/* 6-month sparkline */}
         {last6.length > 1 && (
           <div>
             <p className="mb-1.5 text-xs text-muted-foreground">6-month trend</p>
             <div className="flex h-10 items-end gap-1">
               {last6.map((entry, i) => {
-                const entryTotal = entry.totalCost + entry.totalExpenses;
-                const pct        = (entryTotal / maxMonthly) * 100;
-                const isLatest   = i === last6.length - 1;
+                const pct      = ((entry.totalCost + entry.totalExpenses) / maxMonthly) * 100;
+                const isLatest = i === last6.length - 1;
                 return (
                   <div key={entry.month} className="flex flex-1 flex-col items-center gap-1">
                     <div className="w-full flex items-end" style={{ height: "32px" }}>
@@ -715,9 +555,7 @@ function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message:
 }
 
 function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="py-8 text-center text-sm text-destructive">{message}</div>
-  );
+  return <div className="py-8 text-center text-sm text-destructive">{message}</div>;
 }
 
 function WidgetSkeleton({ rows = 3 }: { rows?: number }) {

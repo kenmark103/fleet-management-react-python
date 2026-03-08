@@ -3,7 +3,7 @@
  * Fleet Management System — Phase 7
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from '../lib/api'
 import type {
   WorkOrder, WorkOrderCreate, WorkOrderUpdate, WorkOrderStatusUpdate,
@@ -43,11 +43,13 @@ function buildQuery(params: Record<string, unknown>): string {
 
 export function useWorkOrders(params: WorkOrderParams = {}) {
   return useQuery({
-    queryKey: maintenanceKeys.workOrders(params),
-    queryFn:  () =>
+    queryKey:        maintenanceKeys.workOrders(params),
+    queryFn:         () =>
       api.get<PaginatedResponse<WorkOrder>>(
         `/api/v1/maintenance/work-orders${buildQuery(params as Record<string, unknown>)}`
       ).then(r => r.data),
+    placeholderData: keepPreviousData,
+    staleTime:       2 * 60 * 1000,
   })
 }
 
@@ -130,11 +132,13 @@ export function useDeleteWorkOrderPart(woId: string) {
 
 export function useServiceSchedules(params: ScheduleParams = {}) {
   return useQuery({
-    queryKey: maintenanceKeys.schedules(params),
-    queryFn:  () =>
+    queryKey:        maintenanceKeys.schedules(params),
+    queryFn:         () =>
       api.get<PaginatedResponse<ServiceSchedule>>(
         `/api/v1/maintenance/schedules${buildQuery(params as Record<string, unknown>)}`
       ).then(r => r.data),
+    placeholderData: keepPreviousData,
+    staleTime:       2 * 60 * 1000,
   })
 }
 

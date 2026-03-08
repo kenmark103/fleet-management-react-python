@@ -6,7 +6,7 @@
  * Mirrors routers/fuel.py endpoint structure exactly.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import api from '../lib/api'
 import type {
   FuelLog,
@@ -54,9 +54,11 @@ function buildQuery(params: Record<string, unknown>): string {
 
 export function useFuelLogs(params: FuelLogParams = {}) {
   return useQuery({
-    queryKey: fuelKeys.logs(params),
-    queryFn:  () =>
+    queryKey:        fuelKeys.logs(params),
+    queryFn:         () =>
       api.get<PaginatedResponse<FuelLog>>(`/api/v1/fuel/logs${buildQuery(params as Record<string, unknown>)}`).then(r => r.data),
+    placeholderData: keepPreviousData,
+    staleTime:       2 * 60 * 1000,
   })
 }
 
@@ -112,9 +114,11 @@ export function useDeleteFuelLog() {
 
 export function useExpenses(params: ExpenseParams = {}) {
   return useQuery({
-    queryKey: fuelKeys.expenses(params),
-    queryFn:  () =>
+    queryKey:        fuelKeys.expenses(params),
+    queryFn:         () =>
       api.get<PaginatedResponse<Expense>>(`/api/v1/fuel/expenses${buildQuery(params as Record<string, unknown>)}`).then(r => r.data),
+    placeholderData: keepPreviousData,
+    staleTime:       2 * 60 * 1000,
   })
 }
 
@@ -170,10 +174,11 @@ export function useDeleteExpense() {
 
 export function useFuelReport(params: ReportParams = {}) {
   return useQuery({
-    queryKey: fuelKeys.reports(params),
-    queryFn:  () =>
+    queryKey:  fuelKeys.reports(params),
+    queryFn:   () =>
       api.get<ApiResponse<FuelReport>>(`/api/v1/fuel/reports${buildQuery(params as Record<string, unknown>)}`).then(r => r.data),
-    select: (res) => res.data,
+    select:    (res) => res.data,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
