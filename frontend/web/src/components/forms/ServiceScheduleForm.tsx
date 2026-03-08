@@ -17,7 +17,7 @@ import { Label } from "../ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../ui/select";
-import { API_BASE_URL } from "../../lib/constants";
+import apiClient from "../../lib/api";
 import type {
   ServiceSchedule, ServiceScheduleCreate, ServiceScheduleUpdate, ServiceIntervalType,
 } from "../../types/maintenance";
@@ -87,9 +87,8 @@ export function ServiceScheduleForm({ initial, onSubmit, isLoading }: ServiceSch
 
   const { data: trucks } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/fleet/trucks?limit=200`, { credentials: "include" }).then((r) => r.json()),
-    select: (r) => r as { id: string; plateNumber: string }[],
+    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200").then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -15,6 +15,8 @@ import { ExpenseForm } from "../../../../components/forms/ExpenseForm";
 import { useCreateExpense } from "../../../../hooks/useFuel";
 import { toast } from "sonner";
 
+import type { ExpenseCreate, ExpenseUpdate } from "../../../../types/fuel";
+
 export const Route = createFileRoute("/_auth/fuel/expenses/new")({
   component: NewExpensePage,
 });
@@ -23,9 +25,11 @@ function NewExpensePage() {
   const navigate       = useNavigate();
   const createExpense  = useCreateExpense();
 
-  const handleSubmit = async (data: Parameters<typeof createExpense.mutateAsync>[0]) => {
+  // Type the parameter as the wide union the form declares, then cast to
+  //    ExpenseCreate for mutateAsync — new page is always create-only.
+  const handleSubmit = async (data: ExpenseCreate | ExpenseUpdate) => {
     try {
-      await createExpense.mutateAsync(data as any);
+      await createExpense.mutateAsync(data as ExpenseCreate);
       toast.success("Expense added.");
       navigate({ to: "/fuel" });
     } catch (err) {
@@ -57,4 +61,3 @@ function NewExpensePage() {
     </div>
   );
 }
-

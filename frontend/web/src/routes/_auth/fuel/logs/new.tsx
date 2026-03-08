@@ -3,29 +3,28 @@
 // /fuel/logs/new — Create a new fuel log
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * routes/_auth/fuel/logs/new.tsx
- */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { ArrowLeft, Fuel } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 import { Button } from "../../../../components/ui/button";
 import { PageHeader } from "../../../../components/molecules/PageHeader";
 import { FuelLogForm } from "../../../../components/forms/FuelLogForm";
 import { useCreateFuelLog } from "../../../../hooks/useFuel";
 import { toast } from "sonner";
+import type { FuelLogCreate, FuelLogUpdate } from "../../../../types/fuel";
 
 export const Route = createFileRoute("/_auth/fuel/logs/new")({
   component: NewFuelLogPage,
 });
 
 function NewFuelLogPage() {
-  const navigate    = useNavigate();
-  const createLog   = useCreateFuelLog();
+  const navigate  = useNavigate();
+  const createLog = useCreateFuelLog();
 
-  const handleSubmit = async (data: Parameters<typeof createLog.mutateAsync>[0]) => {
+  // ✅ Type as the wide union the form declares; cast to FuelLogCreate for
+  //    mutateAsync — this page is always create-only.
+  const handleSubmit = async (data: FuelLogCreate | FuelLogUpdate) => {
     try {
-      await createLog.mutateAsync(data as any);
+      await createLog.mutateAsync(data as FuelLogCreate);
       toast.success("Fuel log created.");
       navigate({ to: "/fuel" });
     } catch (err) {

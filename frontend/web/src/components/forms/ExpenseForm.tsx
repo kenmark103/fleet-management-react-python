@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { API_BASE_URL } from "../../lib/constants";
+import apiClient from "../../lib/api";
 import type { Expense, ExpenseCreate, ExpenseUpdate, ExpenseCategory } from "../../types/fuel";
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
@@ -61,27 +61,20 @@ export function ExpenseForm({ initial, onSubmit, isLoading }: ExpenseFormProps) 
   // ── Selectors ─────────────────────────────────────────────────────────────
   const { data: trucksData } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/fleet/trucks?limit=200`, { credentials: "include" })
-        .then((r) => r.json()),
-    select: (r) => r as { id: string; plateNumber: string }[],
+    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200").then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: driversData } = useQuery({
     queryKey: ["drivers-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/drivers?limit=200`, { credentials: "include" })
-        .then((r) => r.json()),
-    select: (r) => r.data as { id: string; firstName: string; lastName: string }[],
+    queryFn:  () => apiClient.get<{ data: { id: string; firstName: string; lastName: string }[] }>("/api/v1/drivers?limit=200").then(r => r.data.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: tripsData } = useQuery({
     queryKey: ["trips-select-all"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/trips?limit=100`, { credentials: "include" })
-        .then((r) => r.json()),
-    select: (r) =>
-      r.data as { id: string; tripNumber: string; origin: string; destination: string }[],
+    queryFn:  () => apiClient.get<{ data: { id: string; tripNumber: string; origin: string; destination: string }[] }>("/api/v1/trips?limit=100").then(r => r.data.data),
+    staleTime: 2 * 60 * 1000,
   });
 
   // ── Submit ────────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { formatCurrency } from "../../lib/utils";
-import { API_BASE_URL } from "../../lib/constants";
+import apiClient from "../../lib/api";
 import { usePermission } from "../../hooks/usePermission";
 import { useAuth } from "../../lib/auth-context";
 import type { FuelLog, FuelLogCreate, FuelLogUpdate } from "../../types/fuel";
@@ -68,30 +68,23 @@ export function FuelLogForm({ initial, onSubmit, isLoading }: FuelLogFormProps) 
   // ── Fetch trucks ──────────────────────────────────────────────────────────
   const { data: trucksData } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/fleet/trucks?limit=200&status=active`, {
-        credentials: "include",
-      }).then((r) => r.json()),
-    select: (r) => r as { id: string; plateNumber: string }[],
+    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200&status=active").then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   // ── Fetch drivers (ADMIN/FINANCE only) ───────────────────────────────────
   const { data: driversData } = useQuery({
     queryKey: ["drivers-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/drivers?limit=200&status=active`, {
-        credentials: "include",
-      }).then((r) => r.json()),
-    select: (r) => r.data as { id: string; firstName: string; lastName: string }[],
+    queryFn:  () => apiClient.get<{ data: { id: string; firstName: string; lastName: string }[] }>("/api/v1/drivers?limit=200&status=active").then(r => r.data.data),
+    staleTime: 5 * 60 * 1000,
     enabled: !isDriver,
   });
 
   // ── Fetch driver profile for DRIVER role (to pre-fill driverId) ──────────
   const { data: myDriverProfile } = useQuery({
     queryKey: ["my-driver-profile"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/drivers/me`, { credentials: "include" }).then((r) => r.json()),
-    select: (r) => r.data as { id: string },
+    queryFn:  () => apiClient.get<{ data: { id: string } }>("/api/v1/drivers/me").then(r => r.data.data),
+    staleTime: 30 * 60 * 1000,
     enabled: isDriver,
   });
 
@@ -104,12 +97,10 @@ export function FuelLogForm({ initial, onSubmit, isLoading }: FuelLogFormProps) 
   // ── Fetch active trips for selected truck (optional linkage) ─────────────
   const { data: tripsData } = useQuery({
     queryKey: ["trips-select", truckId],
-    queryFn:  () =>
-      fetch(
-        `${API_BASE_URL}/trips?assignedTruckId=${truckId}&status=pending&status=en-route&limit=50`,
-        { credentials: "include" }
-      ).then((r) => r.json()),
-    select: (r) => r.data as { id: string; tripNumber: string; origin: string; destination: string }[],
+    queryFn:  () => apiClient.get<{ data: { id: string; tripNumber: string; origin: string; destination: string }[] }>(
+      `/api/v1/trips?assignedTruckId=${truckId}&status=pending&status=en-route&limit=50`
+    ).then(r => r.data.data),
+    staleTime: 2 * 60 * 1000,
     enabled: Boolean(truckId),
   });
 

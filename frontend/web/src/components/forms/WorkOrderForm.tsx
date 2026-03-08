@@ -18,7 +18,7 @@ import { Textarea } from "../ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../ui/select";
-import { API_BASE_URL } from "../../lib/constants";
+import apiClient from "../../lib/api";
 import type { WorkOrder, WorkOrderCreate, WorkOrderUpdate, WorkOrderPriority } from "../../types/maintenance";
 
 interface WorkOrderFormProps {
@@ -45,18 +45,14 @@ export function WorkOrderForm({ initial, onSubmit, isLoading }: WorkOrderFormPro
 
   const { data: trucks } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/fleet/trucks?limit=200&status=active`, { credentials: "include" })
-        .then((r) => r.json()),
-    select: (r) => r as { id: string; plateNumber: string }[],
+    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200&status=active").then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: mechanics } = useQuery({
     queryKey: ["mechanics-select"],
-    queryFn:  () =>
-      fetch(`${API_BASE_URL}/settings/users?role=MECHANIC&limit=200`, { credentials: "include" })
-        .then((r) => r.json()),
-    select: (r) => r.data as { id: string; firstName: string; lastName: string }[],
+    queryFn:  () => apiClient.get<{ data: { id: string; firstName: string; lastName: string }[] }>("/api/v1/settings/users?role=MECHANIC&limit=200").then(r => r.data.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
