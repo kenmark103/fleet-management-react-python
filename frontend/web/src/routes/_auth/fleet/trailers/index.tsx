@@ -1,3 +1,13 @@
+/**
+ * routes/_auth/fleet/trailers/index.tsx
+ * Route: /fleet/trailers
+ *
+ * Changes:
+ *   - useTrailers now receives params (page, pageSize, search, status)
+ *   - Client-side filter removed — search is now server-side via params
+ *   - Pagination UI block added (matches maintenance pattern exactly)
+ */
+
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Plus, Container, RefreshCw } from "lucide-react";
@@ -9,6 +19,7 @@ import { TrailerStatusBadge } from "../../../../components/fleet/StatusBadge";
 import { ConfirmDialog } from "../../../../components/atoms/ConfirmDialog";
 import { usePermission } from "../../../../hooks/usePermission";
 import { useTrailers, useFleetSummary, useDeleteTrailer } from "../../../../hooks/useFleet";
+import type { TrailerListParams } from "../../../../hooks/useFleet";
 import { formatDate, toTitleCase } from "../../../../lib/utils";
 import type { Trailer } from "../../../../types/fleet";
 
@@ -19,15 +30,16 @@ export const Route = createFileRoute("/_auth/fleet/trailers/")({
 function TrailersIndex() {
   const { can } = usePermission();
   const navigate = useNavigate();
-  const { data: trailers, isLoading, refetch } = useTrailers();
-  const { data: summary } = useFleetSummary();
-  const deleteTrailer = useDeleteTrailer();
-  const [search, setSearch] = useState("");
+
+  const [params, setParams] = useState<TrailerListParams>({ page: 1, pageSize: 20 });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; plate: string } | null>(null);
 
-  const filtered = (trailers ?? []).filter((t) =>
-    `${t.plateNumber} ${t.make} ${t.model}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data, isLoading, refetch } = useTrailers(params);
+  const { data: summary } = useFleetSummary();
+  const deleteTrailer = useDeleteTrailer();
+
+  const trailers = data?.data ?? [];
+  const meta     = data?.meta;
 
   const columns: Column<Trailer>[] = [
     {
@@ -73,14 +85,25 @@ function TrailersIndex() {
       cell: (row: Trailer) => (
         <div className="flex items-center justify-end gap-1">
           {can("trailers:edit") && (
-            <Button variant="ghost" size="sm"
-              onClick={(e) => { e.stopPropagation(); navigate({ to: "/fleet/trailers/$trailerId/edit", params: { trailerId: row.id } }); }}>
+            <Button
+              variant="ghost" size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate({ to: "/fleet/trailers/$trailerId/edit", params: { trailerId: row.id } });
+              }}
+            >
               Edit
             </Button>
           )}
           {can("trailers:delete") && (
-            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"
-              onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: row.id, plate: row.plateNumber }); }}>
+            <Button
+              variant="ghost" size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget({ id: row.id, plate: row.plateNumber });
+              }}
+            >
               Delete
             </Button>
           )}
@@ -93,7 +116,8 @@ function TrailersIndex() {
     <div className="space-y-6">
       <PageHeader
         title="Trailers"
-        subtitle={`${trailers?.length ?? 0} trailers registered`}
+        subtitle={`${meta?.totalItems ?? trailers.length} trailers registered`}
+        icon={<Container className="h-6 w-6" />}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -110,21 +134,47 @@ function TrailersIndex() {
 
       {summary && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <StatCard title="Total Trailers"  value={summary.totalTrailers}   icon={Container} color="blue" />
-          <StatCard title="Active Trailers" value={summary.activeTrailers}  icon={Container} color="green" />
+          <StatCard title="Total Trailers"  value={summary.totalTrailers}  icon={Container} color="blue" />
+          <StatCard title="Active Trailers" value={summary.activeTrailers} icon={Container} color="green" />
         </div>
       )}
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={trailers}
         loading={isLoading}
         searchable
         searchPlaceholder="Search by plate, make, model…"
-        onSearchChange={setSearch}
+        onSearchChange={(val) => setParams((p) => ({ ...p, page: 1, search: val || undefined }))}
         emptyTitle="No trailers found"
         emptyDescription="Add your first trailer to get started."
       />
+
+      {/* Pagination — matches maintenance pattern */}
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{meta.totalItems} trailer{meta.totalItems !== 1 ? "s" : ""}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasPreviousPage}
+              onClick={() => setParams((p) => ({ ...p, page: (p.page ?? 1) - 1 }))}
+            >
+              Previous
+            </Button>
+            <span className="self-center px-2 hidden sm:inline">
+              Page {meta.page} of {meta.totalPages}
+            </span>
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasNextPage}
+              onClick={() => setParams((p) => ({ ...p, page: (p.page ?? 1) + 1 }))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}
@@ -132,7 +182,10 @@ function TrailersIndex() {
         title={`Delete trailer ${deleteTarget?.plate}?`}
         description="This action cannot be undone."
         onConfirm={async () => {
-          if (deleteTarget) { await deleteTrailer.mutateAsync(deleteTarget.id); setDeleteTarget(null); }
+          if (deleteTarget) {
+            await deleteTrailer.mutateAsync(deleteTarget.id);
+            setDeleteTarget(null);
+          }
         }}
         isLoading={deleteTrailer.isPending}
         destructive
