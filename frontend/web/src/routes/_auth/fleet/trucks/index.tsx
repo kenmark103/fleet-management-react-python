@@ -1,7 +1,11 @@
 /**
  * routes/_auth/fleet/trucks/index.tsx
  * Route: /fleet/trucks
- * Trucks list with stat cards, searchable DataTable, delete confirm dialog.
+ *
+ * Changes:
+ *   - useTrucks now receives params (page, pageSize, search, status)
+ *   - Client-side filter removed — search is now server-side via params
+ *   - Pagination UI block added (matches maintenance pattern exactly)
  */
 
 import { useState } from "react";
@@ -15,6 +19,7 @@ import { TruckStatusBadge } from "../../../../components/fleet/StatusBadge";
 import { ConfirmDialog } from "../../../../components/atoms/ConfirmDialog";
 import { usePermission } from "../../../../hooks/usePermission";
 import { useTrucks, useFleetSummary, useDeleteTruck } from "../../../../hooks/useFleet";
+import type { TruckListParams } from "../../../../hooks/useFleet";
 import { formatDate, formatNumber } from "../../../../lib/utils";
 import type { Truck as TruckType } from "../../../../types/fleet";
 
@@ -25,16 +30,16 @@ export const Route = createFileRoute("/_auth/fleet/trucks/")({
 function TrucksIndex() {
   const { can } = usePermission();
   const navigate = useNavigate();
-  const { data: trucks, isLoading, refetch } = useTrucks();
-  const { data: summary } = useFleetSummary();
-  const deleteTruck = useDeleteTruck();
-  const [search, setSearch] = useState("");
+
+  const [params, setParams] = useState<TruckListParams>({ page: 1, pageSize: 20 });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; plate: string } | null>(null);
 
-  // Client-side search filter
-  const filtered = (trucks ?? []).filter((t) =>
-    `${t.plateNumber} ${t.make} ${t.model}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data, isLoading, refetch } = useTrucks(params);
+  const { data: summary } = useFleetSummary();
+  const deleteTruck = useDeleteTruck();
+
+  const trucks = data?.data ?? [];
+  const meta   = data?.meta;
 
   const columns: Column<TruckType>[] = [
     {
@@ -111,7 +116,8 @@ function TrucksIndex() {
     <div className="space-y-6">
       <PageHeader
         title="Trucks"
-        subtitle={`${trucks?.length ?? 0} vehicles registered`}
+        subtitle={`${meta?.totalItems ?? trucks.length} vehicles registered`}
+        icon={<Truck className="h-6 w-6" />}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -126,40 +132,50 @@ function TrucksIndex() {
         }
       />
 
-      {/* Stat cards — only shown when summary loads */}
       {summary && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            title="Total Trucks"
-            value={summary.totalTrucks}
-            icon={Truck}
-            color="blue"
-          />
-          <StatCard
-            title="Active"
-            value={summary.activeTrucks}
-            icon={Truck}
-            color="green"
-          />
-          <StatCard
-            title="In Progress"
-            value={summary.inProgressTrucks}
-            icon={Truck}
-            color="amber"
-          />
+          <StatCard title="Total Trucks"  value={summary.totalTrucks}      icon={Truck} color="blue" />
+          <StatCard title="Active"        value={summary.activeTrucks}     icon={Truck} color="green" />
+          <StatCard title="In Progress"   value={summary.inProgressTrucks} icon={Truck} color="amber" />
         </div>
       )}
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={trucks}
         loading={isLoading}
         searchable
         searchPlaceholder="Search by plate, make, model…"
-        onSearchChange={setSearch}
+        onSearchChange={(val) => setParams((p) => ({ ...p, page: 1, search: val || undefined }))}
         emptyTitle="No trucks found"
         emptyDescription="Add your first truck to get started."
       />
+
+      {/* Pagination — matches maintenance pattern */}
+      {meta && meta.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{meta.totalItems} truck{meta.totalItems !== 1 ? "s" : ""}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasPreviousPage}
+              onClick={() => setParams((p) => ({ ...p, page: (p.page ?? 1) - 1 }))}
+            >
+              Previous
+            </Button>
+            <span className="self-center px-2 hidden sm:inline">
+              Page {meta.page} of {meta.totalPages}
+            </span>
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasNextPage}
+              onClick={() => setParams((p) => ({ ...p, page: (p.page ?? 1) + 1 }))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}
