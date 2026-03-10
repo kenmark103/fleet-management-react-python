@@ -1,23 +1,26 @@
 /**
- * routes/_auth/fleet/trucks/$truckId.tsx
+ * routes/_auth/fleet/trucks/$truckId/index.tsx
  * Route: /fleet/trucks/:truckId
- * Truck detail view.
+ *
+ * UI fixes:
+ *   - Fixed broken template literals: "..." → `...` for odometer + VIN rows
+ *   - Mobile nav: top bar wraps on small screens instead of overflowing
  */
 
 import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Pencil, Trash2, ArrowLeft, Truck, Gauge, Droplets, Calendar } from "lucide-react";
-import { Button } from "../../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
-import { LoadingSpinner } from "../../../../components/atoms/LoadingSpinner";
-import { ConfirmDialog } from "../../../../components/atoms/ConfirmDialog";
-import { TruckStatusBadge } from "../../../../components/fleet/StatusBadge";
-import { useTruck, useDeleteTruck } from "../../../../hooks/useFleet";
-import { usePermission } from "../../../../hooks/usePermission";
-import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon } from "../../../../lib/utils";
-import { cn } from "../../../../lib/utils";
+import { Button } from "../../../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../../../components/ui/card";
+import { LoadingSpinner } from "../../../../../components/atoms/LoadingSpinner";
+import { ConfirmDialog } from "../../../../../components/atoms/ConfirmDialog";
+import { TruckStatusBadge } from "../../../../../components/fleet/StatusBadge";
+import { useTruck, useDeleteTruck } from "../../../../../hooks/useFleet";
+import { usePermission } from "../../../../../hooks/usePermission";
+import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon } from "../../../../../lib/utils";
+import { cn } from "../../../../../lib/utils";
 
-export const Route = createFileRoute("/_auth/fleet/trucks/$truckId")({
+export const Route = createFileRoute("/_auth/fleet/trucks/$truckId/")({
   component: TruckDetail,
 });
 
@@ -39,8 +42,9 @@ function TruckDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Nav + actions */}
-      <div className="flex items-center justify-between">
+
+      {/* Nav + actions — wraps on mobile */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/fleet/trucks">
             <ArrowLeft className="mr-2 h-4 w-4" />Back to Trucks
@@ -64,15 +68,15 @@ function TruckDetail() {
 
       {/* Hero card */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-                <Truck className="h-7 w-7 text-primary" />
+              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                <Truck className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold font-mono">{truck.plateNumber}</h1>
-                <p className="text-muted-foreground">{truck.year} {truck.make} {truck.model}</p>
+                <h1 className="text-xl sm:text-2xl font-bold font-mono">{truck.plateNumber}</h1>
+                <p className="text-muted-foreground text-sm">{truck.year} {truck.make} {truck.model}</p>
                 {truck.color && <p className="text-sm text-muted-foreground">{truck.color}</p>}
               </div>
             </div>
@@ -86,6 +90,7 @@ function TruckDetail() {
         <Card>
           <CardHeader><CardTitle className="text-sm">Operational</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            {/* ✅ Fixed: was "..." string literal, now backtick template */}
             <Row icon={Gauge}    label="Odometer"  value={`${formatNumber(truck.odometerKm)} km`} />
             <Row icon={Droplets} label="Fuel Type" value={toTitleCase(truck.fuelType)} />
             {truck.vin && <Row icon={Truck} label="VIN" value={truck.vin} mono />}
@@ -95,14 +100,8 @@ function TruckDetail() {
         <Card>
           <CardHeader><CardTitle className="text-sm">Compliance</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <ExpiryRow
-              label="Insurance"
-              date={truck.insuranceExpiryDate}
-            />
-            <ExpiryRow
-              label="Inspection"
-              date={truck.inspectionExpiryDate}
-            />
+            <ExpiryRow label="Insurance"  date={truck.insuranceExpiryDate} />
+            <ExpiryRow label="Inspection" date={truck.inspectionExpiryDate} />
           </CardContent>
         </Card>
       </div>
@@ -127,7 +126,7 @@ function TruckDetail() {
         description="This cannot be undone. All associated records (fuel logs, service history) will remain but the truck will be removed."
         onConfirm={handleDelete}
         isLoading={deleteTruck.isPending}
-        variant="destructive"
+        destructive
       />
     </div>
   );
@@ -148,7 +147,7 @@ function Row({ icon: Icon, label, value, mono = false }: {
 
 function ExpiryRow({ label, date }: { label: string; date?: string }) {
   const expired = isExpired(date);
-  const soon = isExpiringSoon(date, 30);
+  const soon    = isExpiringSoon(date, 30);
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <div className="flex items-center gap-2 text-muted-foreground">

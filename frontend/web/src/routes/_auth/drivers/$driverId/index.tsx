@@ -15,13 +15,13 @@ import {
   useDriver,
   useDeleteDriver,
   useDriverTrips,
-} from "../../../hooks/useDrivers";
-import { usePermission } from "../../../hooks/usePermission";
-import { DriverDocuments } from "../../../components/drivers/DriverDocuments";
-import { ConfirmDialog } from "../../../components/atoms/ConfirmDialog";
-import { Button } from "../../../components/ui/button";
-import { Badge } from "../../../components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+} from "../../../../hooks/useDrivers";
+import { usePermission } from "../../../../hooks/usePermission";
+import { DriverDocuments } from "../../../../components/drivers/DriverDocuments";
+import { ConfirmDialog } from "../../../../components/atoms/ConfirmDialog";
+import { Button } from "../../../../components/ui/button";
+import { Badge } from "../../../../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -29,7 +29,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../../components/ui/table";
+} from "../../../../components/ui/table";
 import {
   ChevronLeft,
   ChevronRight,
@@ -42,9 +42,9 @@ import {
   CreditCard,
   AlertTriangle,
 } from "lucide-react";
-import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon } from "../../../lib/utils";
+import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon } from "../../../../lib/utils";
 
-export const Route = createFileRoute("/_auth/drivers/$driverId")({
+export const Route = createFileRoute("/_auth/drivers/$driverId/")({
   component: DriverDetailPage,
 });
 
@@ -103,7 +103,7 @@ function ProfileTab({
   driver,
   driverId,
 }: {
-  driver: import("../../../types/driver").Driver;
+  driver: import("../../../../types/driver").Driver;
   driverId: string;
 }) {
   const { can } = usePermission();
@@ -266,7 +266,7 @@ function TripHistoryTab({ driverId }: { driverId: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DriverDetailPage() {
-  const { driverId } = useParams({ from: "/_auth/drivers/$driverId" });
+  const { driverId } = useParams({ from: "/_auth/drivers/$driverId/" });
   const navigate     = useNavigate();
   const { can }      = usePermission();
 

@@ -1,9 +1,14 @@
 /**
  * routes/_auth/fleet/trucks/new.tsx
  * Route: /fleet/trucks/new
+ *
+ * UI fixes:
+ *   - PageHeader has Truck icon + Back button (matches app pattern)
  */
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Truck, ArrowLeft } from "lucide-react";
+import { Button } from "../../../../components/ui/button";
 import { PageHeader } from "../../../../components/molecules/PageHeader";
 import { TruckForm } from "../../../../components/fleet/TruckForm";
 import { useCreateTruck } from "../../../../hooks/useFleet";
@@ -27,6 +32,14 @@ function NewTruck() {
       <PageHeader
         title="Add Truck"
         subtitle="Register a new truck in the fleet"
+        icon={<Truck className="h-6 w-6" />}
+        actions={
+          <Link to="/fleet/trucks">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />Back
+            </Button>
+          </Link>
+        }
       />
       <TruckForm
         isLoading={createTruck.isPending}

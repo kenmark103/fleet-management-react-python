@@ -2,17 +2,18 @@
  * routes/_auth/fleet/trucks/$truckId.edit.tsx
  * Route: /fleet/trucks/:truckId/edit
  *
- * Note: The underscore in the filename ($truckId_.edit) is TanStack Router's
- * flat-route convention to prevent nesting under $truckId's layout.
- * Rename to $truckId_.edit.tsx if your project uses that pattern.
+ * UI fixes:
+ *   - PageHeader has Truck icon + Back button (matches app pattern)
  */
 
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { PageHeader } from "../../../../components/molecules/PageHeader";
-import { TruckForm } from "../../../../components/fleet/TruckForm";
-import { LoadingSpinner } from "../../../../components/atoms/LoadingSpinner";
-import { useTruck, useUpdateTruck } from "../../../../hooks/useFleet";
-import { usePermission } from "../../../../hooks/usePermission";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Truck, ArrowLeft } from "lucide-react";
+import { Button } from "../../../../../components/ui/button";
+import { PageHeader } from "../../../../../components/molecules/PageHeader";
+import { TruckForm } from "../../../../../components/fleet/TruckForm";
+import { LoadingSpinner } from "../../../../../components/atoms/LoadingSpinner";
+import { useTruck, useUpdateTruck } from "../../../../../hooks/useFleet";
+import { usePermission } from "../../../../../hooks/usePermission";
 
 export const Route = createFileRoute("/_auth/fleet/trucks/$truckId/edit")({
   component: EditTruck,
@@ -36,6 +37,14 @@ function EditTruck() {
       <PageHeader
         title={`Edit ${truck.plateNumber}`}
         subtitle={`${truck.year} ${truck.make} ${truck.model}`}
+        icon={<Truck className="h-6 w-6" />}
+        actions={
+          <Link to="/fleet/trucks/$truckId" params={{ truckId }}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />Back
+            </Button>
+          </Link>
+        }
       />
       <TruckForm
         defaultValues={truck}

@@ -1,22 +1,23 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, status, HTTPException
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from auth.deps import get_current_user, require_roles
 from db.dbconfig import DB
-from db.models import User
+from db.models import User, Truck, Trailer
 from schemas.fleet import (
     TruckCreate, TruckUpdate, TruckResponse,
     TrailerCreate, TrailerUpdate, TrailerResponse,
     FleetSummary,
 )
 from services import fleet as svc
-from schemas.common import TruckStatus, TrailerStatus
+from schemas.common import TruckStatus, TrailerStatus, PaginationMeta, PaginatedResponse
 
 router = APIRouter(prefix="/fleet", tags=["fleet"])
 
 # ── Role dependency aliases ────────────────────────────────────────────────────
 # Viewers: all roles except DRIVER (matches trucks:view-list permission matrix)
-ViewerDep  = Depends(require_roles(["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"]))
+ViewerDep  = Depends(require_roles(["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"]))
 AdminDep   = Depends(require_roles(["ADMIN"]))
 
 
@@ -32,15 +33,48 @@ async def get_fleet_summary(
 
 # ── Trucks ─────────────────────────────────────────────────────────────────────
 
-@router.get("/trucks", response_model=list[TruckResponse])
+@router.get("/trucks", response_model=PaginatedResponse)
 async def list_trucks(
     db: DB,
-    status: TruckStatus | None = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
     _: User = ViewerDep,
+    status: TruckStatus | None = Query(None),
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=500),
 ):
-    return await svc.list_trucks(db, status=status, skip=skip, limit=limit)
+    query = select(Truck)
+
+    if status:
+        query = query.where(Truck.status == status)
+
+    if search:
+        term = f"%{search}%"
+        query = query.where(
+            Truck.plate_number.ilike(term) |
+            Truck.make.ilike(term) |
+            Truck.model.ilike(term)
+        )
+
+    count_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total = count_result.scalar()
+
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    trucks = result.scalars().all()
+
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
+    return PaginatedResponse(
+        data=[TruckResponse.model_validate(t) for t in trucks],
+        meta=PaginationMeta(
+            page=page,
+            page_size=page_size,
+            total_items=total,
+            total_pages=total_pages,
+            has_next_page=page < total_pages,
+            has_previous_page=page > 1,
+        ),
+    )
 
 
 @router.post("/trucks", response_model=TruckResponse, status_code=status.HTTP_201_CREATED)
@@ -82,15 +116,48 @@ async def delete_truck(
 
 # ── Trailers ───────────────────────────────────────────────────────────────────
 
-@router.get("/trailers", response_model=list[TrailerResponse])
+@router.get("/trailers", response_model=PaginatedResponse)
 async def list_trailers(
     db: DB,
-    status: TrailerStatus | None = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
     _: User = ViewerDep,
+    status: TrailerStatus | None = Query(None),
+    search: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=500),
 ):
-    return await svc.list_trailers(db, status=status, skip=skip, limit=limit)
+    query = select(Trailer)
+
+    if status:
+        query = query.where(Trailer.status == status)
+
+    if search:
+        term = f"%{search}%"
+        query = query.where(
+            Trailer.plate_number.ilike(term) |
+            Trailer.make.ilike(term) |
+            Trailer.model.ilike(term)
+        )
+
+    count_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total = count_result.scalar()
+
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    trailers = result.scalars().all()
+
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
+    return PaginatedResponse(
+        data=[TrailerResponse.model_validate(t) for t in trailers],
+        meta=PaginationMeta(
+            page=page,
+            page_size=page_size,
+            total_items=total,
+            total_pages=total_pages,
+            has_next_page=page < total_pages,
+            has_previous_page=page > 1,
+        ),
+    )
 
 
 @router.post("/trailers", response_model=TrailerResponse, status_code=status.HTTP_201_CREATED)

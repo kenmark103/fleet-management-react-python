@@ -2,11 +2,9 @@
  * routes/_auth/drivers/index.tsx
  * Fleet Management System — Phase 4 (revised Phase 8)
  *
- * Changes from original:
- *   - Removed Sheet / DriverForm dialog for creating drivers
- *   - "Add Driver" now links to /drivers/new (file-based route)
- *   - Added Edit (Pencil) icon per row linking to /drivers/$driverId/edit
- *   - Delete wording updated to reflect soft-deactivation of login
+ * Fix:
+ *   - DriverCard now calls usePermission() internally instead of receiving
+ *     `can` as a prop — eliminates PermissionAction vs string type conflict
  */
 
 import { useState } from "react";
@@ -14,6 +12,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useDrivers, useDriverSummary, useDeleteDriver } from "../../../hooks/useDrivers";
 import { usePermission } from "../../../hooks/usePermission";
 import { ConfirmDialog } from "../../../components/atoms/ConfirmDialog";
+import { PageHeader } from "../../../components/molecules/PageHeader";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Badge } from "../../../components/ui/badge";
@@ -42,10 +41,12 @@ import {
   Trash2,
   Eye,
   Pencil,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
-import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon } from "../../../lib/utils";
+import {
+  formatDate,
+  isExpired as checkExpired,
+  isExpiringSoon as checkExpiringSoon,
+} from "../../../lib/utils";
 import type { Driver } from "../../../types/driver";
 
 export const Route = createFileRoute("/_auth/drivers/")({
@@ -61,51 +62,22 @@ function SummaryCards() {
   const summary = data?.data;
 
   const cards = [
-    {
-      label: "Total Drivers",
-      value: summary?.totalDrivers ?? 0,
-      icon: Users,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Active",
-      value: summary?.activeDrivers ?? 0,
-      icon: UserCheck,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-    {
-      label: "Inactive",
-      value: summary?.inactiveDrivers ?? 0,
-      icon: UserX,
-      color: "text-gray-500",
-      bg: "bg-gray-50",
-    },
-    {
-      label: "Licenses Expiring (30d)",
-      value: summary?.expiringLicenses30d ?? 0,
-      icon: AlertTriangle,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
-    },
+    { label: "Total Drivers",          value: summary?.totalDrivers      ?? 0, icon: Users,          color: "text-blue-600",   bg: "bg-blue-50" },
+    { label: "Active",                  value: summary?.activeDrivers     ?? 0, icon: UserCheck,      color: "text-green-600",  bg: "bg-green-50" },
+    { label: "Inactive",                value: summary?.inactiveDrivers   ?? 0, icon: UserX,          color: "text-gray-500",   bg: "bg-gray-50" },
+    { label: "Licenses Expiring (30d)", value: summary?.expiringLicenses30d ?? 0, icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {cards.map(({ label, value, icon: Icon, color, bg }) => (
-        <div
-          key={label}
-          className="rounded-xl border bg-card p-4 flex items-center gap-4"
-        >
-          <div className={`rounded-lg p-2.5 ${bg}`}>
+        <div key={label} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+          <div className={`rounded-lg p-2.5 ${bg} shrink-0`}>
             <Icon className={`h-5 w-5 ${color}`} />
           </div>
-          <div>
-            <p className="text-2xl font-bold tracking-tight">
-              {isLoading ? "—" : value}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+          <div className="min-w-0">
+            <p className="text-2xl font-bold tracking-tight">{isLoading ? "—" : value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{label}</p>
           </div>
         </div>
       ))}
@@ -136,18 +108,107 @@ function LicenseExpiryCell({ date }: { date: string }) {
   const isExpired      = checkExpired(date);
   const isExpiringSoon = checkExpiringSoon(date, 30);
   return (
-    <span
-      className={
-        isExpired
-          ? "text-destructive font-medium"
-          : isExpiringSoon
-          ? "text-yellow-600 font-medium"
-          : "text-foreground"
-      }
-    >
+    <span className={
+      isExpired ? "text-destructive font-medium"
+      : isExpiringSoon ? "text-yellow-600 font-medium"
+      : "text-foreground"
+    }>
       {formatDate(new Date(date), "short")}
       {(isExpired || isExpiringSoon) && " ⚠"}
     </span>
+  );
+}
+
+function DriverAvatar({ driver }: { driver: Driver }) {
+  return (
+    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold text-muted-foreground overflow-hidden">
+      {driver.avatarUrl ? (
+        <img src={driver.avatarUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        `${driver.firstName[0]}${driver.lastName[0]}`
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE CARD
+// ✅ Fix: calls usePermission() directly — no `can` prop needed
+//    This avoids the PermissionAction vs string type mismatch
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DriverCard({
+  driver,
+  onDelete,
+}: {
+  driver: Driver;
+  onDelete: (driver: Driver) => void;
+}) {
+  const { can } = usePermission();   // ✅ called here, not passed as prop
+
+  return (
+    <div className="rounded-xl border bg-card p-4 space-y-3">
+      {/* Row 1: Avatar + name + status */}
+      <div className="flex items-center gap-3">
+        <DriverAvatar driver={driver} />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm truncate">
+            {driver.firstName} {driver.lastName}
+          </p>
+          {driver.currentTruckId && (
+            <p className="text-xs text-muted-foreground">On truck</p>
+          )}
+        </div>
+        <DriverStatusBadge status={driver.status} />
+      </div>
+
+      {/* Row 2: Contact */}
+      <div className="text-sm text-muted-foreground space-y-0.5">
+        <p className="truncate">{driver.email}</p>
+        <p>{driver.phone}</p>
+      </div>
+
+      {/* Row 3: License */}
+      <div className="flex items-center justify-between text-sm">
+        <div>
+          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+            {driver.licenseNumber}
+          </span>
+          <span className="ml-2 text-xs text-muted-foreground">{driver.licenseClass}</span>
+        </div>
+        <LicenseExpiryCell date={driver.licenseExpiryDate} />
+      </div>
+
+      {/* Row 4: Hire date + actions */}
+      <div className="flex items-center justify-between pt-1 border-t">
+        <p className="text-xs text-muted-foreground">
+          Hired {formatDate(new Date(driver.hireDate), "short")}
+        </p>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+            <Link to="/drivers/$driverId" params={{ driverId: driver.id }}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+          {can("drivers:edit") && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+              <Link to="/drivers/$driverId/edit" params={{ driverId: driver.id }}>
+                <Pencil className="h-4 w-4" />
+              </Link>
+            </Button>
+          )}
+          {can("drivers:edit") && (
+            <Button
+              variant="ghost" size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => onDelete(driver)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -182,32 +243,29 @@ function DriversPage() {
   const handleStatus = (val: string) => { setStatusFilter(val); setPage(1); };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Drivers</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage driver profiles, licenses, and documents.
-          </p>
-        </div>
-        {can("drivers:create") && (
-          <Button asChild>
-            <Link to="/drivers/new">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Driver
-            </Link>
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Drivers"
+        subtitle="Manage driver profiles, licenses, and documents."
+        icon={<Users className="h-6 w-6" />}
+        actions={
+          can("drivers:create") ? (
+            <Button asChild size="sm">
+              <Link to="/drivers/new">
+                <Plus className="h-4 w-4 mr-2" />Add Driver
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {/* Summary cards */}
       <SummaryCards />
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search name, email, license…"
@@ -228,8 +286,20 @@ function DriversPage() {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border overflow-hidden">
+      {/* Mobile: card list */}
+      <div className="space-y-3 sm:hidden">
+        {isLoading && <p className="text-center py-12 text-muted-foreground text-sm">Loading drivers…</p>}
+        {isError   && <p className="text-center py-12 text-destructive text-sm">Failed to load drivers.</p>}
+        {!isLoading && !isError && drivers.length === 0 && (
+          <p className="text-center py-12 text-muted-foreground text-sm">No drivers found.</p>
+        )}
+        {drivers.map((driver) => (
+          <DriverCard key={driver.id} driver={driver} onDelete={setDeleteTarget} />
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden sm:block rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
@@ -244,94 +314,59 @@ function DriversPage() {
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                  Loading drivers…
-                </TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">Loading drivers…</TableCell></TableRow>
             )}
             {isError && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-destructive text-sm">
-                  Failed to load drivers.
-                </TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-destructive text-sm">Failed to load drivers.</TableCell></TableRow>
             )}
             {!isLoading && !isError && drivers.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                  No drivers found.
-                </TableCell>
-              </TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">No drivers found.</TableCell></TableRow>
             )}
             {drivers.map((driver) => (
               <TableRow key={driver.id} className="hover:bg-muted/30 transition-colors">
-                {/* Name + avatar */}
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold text-muted-foreground overflow-hidden">
-                      {driver.avatarUrl ? (
-                        <img src={driver.avatarUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        `${driver.firstName[0]}${driver.lastName[0]}`
-                      )}
-                    </div>
+                    <DriverAvatar driver={driver} />
                     <div>
-                      <p className="font-medium text-sm">
-                        {driver.firstName} {driver.lastName}
-                      </p>
-                      {driver.currentTruckId && (
-                        <p className="text-xs text-muted-foreground">On truck</p>
-                      )}
+                      <p className="font-medium text-sm">{driver.firstName} {driver.lastName}</p>
+                      {driver.currentTruckId && <p className="text-xs text-muted-foreground">On truck</p>}
                     </div>
                   </div>
                 </TableCell>
-
                 <TableCell>
                   <p className="text-sm">{driver.email}</p>
                   <p className="text-xs text-muted-foreground">{driver.phone}</p>
                 </TableCell>
-
                 <TableCell>
                   <span className="text-sm font-mono">{driver.licenseNumber}</span>
                   <p className="text-xs text-muted-foreground">{driver.licenseClass}</p>
                 </TableCell>
-
-                <TableCell>
-                  <LicenseExpiryCell date={driver.licenseExpiryDate} />
-                </TableCell>
-
-                <TableCell>
-                  <DriverStatusBadge status={driver.status} />
-                </TableCell>
-
+                <TableCell><LicenseExpiryCell date={driver.licenseExpiryDate} /></TableCell>
+                <TableCell><DriverStatusBadge status={driver.status} /></TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDate(new Date(driver.hireDate), "short")}
                 </TableCell>
-
-                {/* Actions */}
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                       <Link to="/drivers/$driverId" params={{ driverId: driver.id }}>
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3.5 w-3.5" />
                       </Link>
                     </Button>
                     {can("drivers:edit") && (
-                      <Button variant="ghost" size="icon" asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                         <Link to="/drivers/$driverId/edit" params={{ driverId: driver.id }}>
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </Link>
                       </Button>
                     )}
                     {can("drivers:edit") && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
+                        variant="ghost" size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(driver)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
@@ -345,31 +380,19 @@ function DriversPage() {
       {/* Pagination */}
       {meta && totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {meta.totalItems} driver{meta.totalItems !== 1 ? "s" : ""} · page {meta.page} of {meta.totalPages}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={!meta.hasPreviousPage}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
+          <span>{meta.totalItems} driver{meta.totalItems !== 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={!meta.hasPreviousPage} onClick={() => setPage((p) => p - 1)}>
+              Previous
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={!meta.hasNextPage}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
+            <span className="px-2 hidden sm:inline">Page {meta.page} of {meta.totalPages}</span>
+            <Button variant="outline" size="sm" disabled={!meta.hasNextPage} onClick={() => setPage((p) => p + 1)}>
+              Next
             </Button>
           </div>
         </div>
       )}
 
-      {/* Delete confirm */}
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

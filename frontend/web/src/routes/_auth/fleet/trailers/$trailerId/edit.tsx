@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { PageHeader } from "../../../../components/molecules/PageHeader";
-import { TrailerForm } from "../../../../components/fleet/TrailerForm";
-import { LoadingSpinner } from "../../../../components/atoms/LoadingSpinner";
-import { useTrailer, useUpdateTrailer } from "../../../../hooks/useFleet";
-import { usePermission } from "../../../../hooks/usePermission";
+import { PageHeader } from "../../../../../components/molecules/PageHeader";
+import { TrailerForm } from "../../../../../components/fleet/TrailerForm";
+import { LoadingSpinner } from "../../../../../components/atoms/LoadingSpinner";
+import { useTrailer, useUpdateTrailer } from "../../../../../hooks/useFleet";
+import { usePermission } from "../../../../../hooks/usePermission";
 
 export const Route = createFileRoute("/_auth/fleet/trailers/$trailerId/edit")({
   component: EditTrailer,

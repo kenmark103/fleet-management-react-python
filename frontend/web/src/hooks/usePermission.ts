@@ -106,8 +106,8 @@ const PERMISSIONS: Record<PermissionAction, UserRole[]> = {
   "dashboard:view-expiry-alerts":      ["ADMIN", "DISPATCHER"],
 
   // Trucks §2.2
-  "trucks:view-list":          ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"],
-  "trucks:view-detail":        ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"],
+  "trucks:view-list":          ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"],
+  "trucks:view-detail":        ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"],
   "trucks:create":             ["ADMIN"],
   "trucks:edit":               ["ADMIN"],
   "trucks:delete":             ["ADMIN"],
@@ -116,8 +116,8 @@ const PERMISSIONS: Record<PermissionAction, UserRole[]> = {
   "trucks:upload-documents":   ["ADMIN"],
 
   // Trailers §2.3
-  "trailers:view-list":        ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"],
-  "trailers:view-detail":      ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"],
+  "trailers:view-list":        ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"],
+  "trailers:view-detail":      ["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"],
   "trailers:create":           ["ADMIN"],
   "trailers:edit":             ["ADMIN"],
   "trailers:delete":           ["ADMIN"],

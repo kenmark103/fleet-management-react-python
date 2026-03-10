@@ -1,19 +1,52 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+/**
+ * hooks/useFleet.ts
+ * Fleet Management System
+ *
+ * Changes:
+ *   - useTrucks / useTrailers now accept a params object
+ *     (page, pageSize, search, status) and return PaginatedResponse<T>
+ *   - Query keys updated to include pagination params for correct cache isolation
+ *   - keepPreviousData added so the UI doesn't flash empty on page change
+ */
+
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as api from "../lib/fleet-api";
 import type { TruckStatus, TrailerStatus } from "../types/fleet";
 import type { TruckPayload, TrailerPayload } from "../lib/fleet-api";
 
 // ── Query keys ─────────────────────────────────────────────────────────────────
+
 export const fleetKeys = {
-  summary:       ["fleet-summary"]                          as const,
-  trucks:        ["trucks"]                                 as const,
-  trucksList:    (status?: TruckStatus) => ["trucks", "list", status] as const,
-  truck:         (id: string)  => ["trucks", id]           as const,
-  trailers:      ["trailers"]                              as const,
-  trailersList:  (status?: TrailerStatus) => ["trailers", "list", status] as const,
-  trailer:       (id: string)  => ["trailers", id]         as const,
+  summary:      ["fleet-summary"]                                          as const,
+  trucks:       ["trucks"]                                                 as const,
+  trucksList:   (params: object) => ["trucks", "list", params]            as const,
+  truck:        (id: string)     => ["trucks", id]                        as const,
+  trailers:     ["trailers"]                                               as const,
+  trailersList: (params: object) => ["trailers", "list", params]          as const,
+  trailer:      (id: string)     => ["trailers", id]                      as const,
 };
+
+// ── Shared params type ─────────────────────────────────────────────────────────
+
+export interface TruckListParams {
+  page?:     number
+  pageSize?: number
+  search?:   string
+  status?:   TruckStatus
+}
+
+export interface TrailerListParams {
+  page?:     number
+  pageSize?: number
+  search?:   string
+  status?:   TrailerStatus
+}
 
 // ── Fleet Summary ──────────────────────────────────────────────────────────────
 
@@ -26,10 +59,12 @@ export function useFleetSummary() {
 
 // ── Trucks ─────────────────────────────────────────────────────────────────────
 
-export function useTrucks(status?: TruckStatus) {
+export function useTrucks(params: TruckListParams = {}) {
+  const { page = 1, pageSize = 20, search, status } = params
   return useQuery({
-    queryKey: fleetKeys.trucksList(status),
-    queryFn:  () => api.listTrucks(status),
+    queryKey:        fleetKeys.trucksList({ page, pageSize, search, status }),
+    queryFn:         () => api.listTrucks(status, { page, pageSize, search }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -84,10 +119,12 @@ export function useDeleteTruck() {
 
 // ── Trailers ───────────────────────────────────────────────────────────────────
 
-export function useTrailers(status?: TrailerStatus) {
+export function useTrailers(params: TrailerListParams = {}) {
+  const { page = 1, pageSize = 20, search, status } = params
   return useQuery({
-    queryKey: fleetKeys.trailersList(status),
-    queryFn:  () => api.listTrailers(status),
+    queryKey:        fleetKeys.trailersList({ page, pageSize, search, status }),
+    queryFn:         () => api.listTrailers(status, { page, pageSize, search }),
+    placeholderData: keepPreviousData,
   });
 }
 

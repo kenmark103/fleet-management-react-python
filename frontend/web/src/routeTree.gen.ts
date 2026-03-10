@@ -23,11 +23,11 @@ import { Route as AuthTripsNewRouteImport } from './routes/_auth/trips/new'
 import { Route as AuthSettingsSystemRouteImport } from './routes/_auth/settings/system'
 import { Route as AuthSettingsProfileRouteImport } from './routes/_auth/settings/profile'
 import { Route as AuthDriversNewRouteImport } from './routes/_auth/drivers/new'
-import { Route as AuthDriversDriverIdRouteImport } from './routes/_auth/drivers/$driverId'
 import { Route as AuthTripsTripIdIndexRouteImport } from './routes/_auth/trips/$tripId/index'
 import { Route as AuthSettingsUsersIndexRouteImport } from './routes/_auth/settings/users/index'
 import { Route as AuthFleetTrucksIndexRouteImport } from './routes/_auth/fleet/trucks/index'
 import { Route as AuthFleetTrailersIndexRouteImport } from './routes/_auth/fleet/trailers/index'
+import { Route as AuthDriversDriverIdIndexRouteImport } from './routes/_auth/drivers/$driverId/index'
 import { Route as AuthTripsTripIdEditRouteImport } from './routes/_auth/trips/$tripId/edit'
 import { Route as AuthSettingsUsersNewRouteImport } from './routes/_auth/settings/users/new'
 import { Route as AuthMaintenanceWorkOrdersNewRouteImport } from './routes/_auth/maintenance/work-orders/new'
@@ -35,18 +35,18 @@ import { Route as AuthMaintenanceSchedulesNewRouteImport } from './routes/_auth/
 import { Route as AuthFuelLogsNewRouteImport } from './routes/_auth/fuel/logs/new'
 import { Route as AuthFuelExpensesNewRouteImport } from './routes/_auth/fuel/expenses/new'
 import { Route as AuthFleetTrucksNewRouteImport } from './routes/_auth/fleet/trucks/new'
-import { Route as AuthFleetTrucksTruckIdRouteImport } from './routes/_auth/fleet/trucks/$truckId'
 import { Route as AuthFleetTrailersNewRouteImport } from './routes/_auth/fleet/trailers/new'
-import { Route as AuthFleetTrailersTrailerIdRouteImport } from './routes/_auth/fleet/trailers/$trailerId'
 import { Route as AuthDriversDriverIdEditRouteImport } from './routes/_auth/drivers/$driverId/edit'
 import { Route as AuthMaintenanceWorkOrdersWorkOrderIdIndexRouteImport } from './routes/_auth/maintenance/work-orders/$workOrderId/index'
-import { Route as AuthFuelLogsLogIdIndexRouteImport } from './routes/_auth/fuel/logs/$logId/index'
-import { Route as AuthFuelExpensesExpenseIdIndexRouteImport } from './routes/_auth/fuel/expenses/$expenseId/index'
+import { Route as AuthFleetTrucksTruckIdIndexRouteImport } from './routes/_auth/fleet/trucks/$truckId/index'
+import { Route as AuthFleetTrailersTrailerIdIndexRouteImport } from './routes/_auth/fleet/trailers/$trailerId/index'
 import { Route as AuthSettingsUsersUserIdEditRouteImport } from './routes/_auth/settings/users/$userId/edit'
 import { Route as AuthMaintenanceWorkOrdersWorkOrderIdEditRouteImport } from './routes/_auth/maintenance/work-orders/$workOrderId/edit'
 import { Route as AuthMaintenanceSchedulesScheduleIdEditRouteImport } from './routes/_auth/maintenance/schedules/$scheduleId/edit'
-import { Route as AuthFleetTrucksTruckIdEditRouteImport } from './routes/_auth/fleet/trucks/$truckId.edit'
-import { Route as AuthFleetTrailersTrailerIdEditRouteImport } from './routes/_auth/fleet/trailers/$trailerId.edit'
+import { Route as AuthFuelLogsLogIdEditRouteImport } from './routes/_auth/fuel/logs/$logId/edit'
+import { Route as AuthFuelExpensesExpenseIdEditRouteImport } from './routes/_auth/fuel/expenses/$expenseId/edit'
+import { Route as AuthFleetTrucksTruckIdEditRouteImport } from './routes/_auth/fleet/trucks/$truckId/edit'
+import { Route as AuthFleetTrailersTrailerIdEditRouteImport } from './routes/_auth/fleet/trailers/$trailerId/edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -117,11 +117,6 @@ const AuthDriversNewRoute = AuthDriversNewRouteImport.update({
   path: '/drivers/new',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthDriversDriverIdRoute = AuthDriversDriverIdRouteImport.update({
-  id: '/drivers/$driverId',
-  path: '/drivers/$driverId',
-  getParentRoute: () => AuthRoute,
-} as any)
 const AuthTripsTripIdIndexRoute = AuthTripsTripIdIndexRouteImport.update({
   id: '/trips/$tripId/',
   path: '/trips/$tripId/',
@@ -142,6 +137,12 @@ const AuthFleetTrailersIndexRoute = AuthFleetTrailersIndexRouteImport.update({
   path: '/fleet/trailers/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthDriversDriverIdIndexRoute =
+  AuthDriversDriverIdIndexRouteImport.update({
+    id: '/drivers/$driverId/',
+    path: '/drivers/$driverId/',
+    getParentRoute: () => AuthRoute,
+  } as any)
 const AuthTripsTripIdEditRoute = AuthTripsTripIdEditRouteImport.update({
   id: '/trips/$tripId/edit',
   path: '/trips/$tripId/edit',
@@ -179,26 +180,15 @@ const AuthFleetTrucksNewRoute = AuthFleetTrucksNewRouteImport.update({
   path: '/fleet/trucks/new',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthFleetTrucksTruckIdRoute = AuthFleetTrucksTruckIdRouteImport.update({
-  id: '/fleet/trucks/$truckId',
-  path: '/fleet/trucks/$truckId',
-  getParentRoute: () => AuthRoute,
-} as any)
 const AuthFleetTrailersNewRoute = AuthFleetTrailersNewRouteImport.update({
   id: '/fleet/trailers/new',
   path: '/fleet/trailers/new',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthFleetTrailersTrailerIdRoute =
-  AuthFleetTrailersTrailerIdRouteImport.update({
-    id: '/fleet/trailers/$trailerId',
-    path: '/fleet/trailers/$trailerId',
-    getParentRoute: () => AuthRoute,
-  } as any)
 const AuthDriversDriverIdEditRoute = AuthDriversDriverIdEditRouteImport.update({
-  id: '/edit',
-  path: '/edit',
-  getParentRoute: () => AuthDriversDriverIdRoute,
+  id: '/drivers/$driverId/edit',
+  path: '/drivers/$driverId/edit',
+  getParentRoute: () => AuthRoute,
 } as any)
 const AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute =
   AuthMaintenanceWorkOrdersWorkOrderIdIndexRouteImport.update({
@@ -206,15 +196,16 @@ const AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute =
     path: '/maintenance/work-orders/$workOrderId/',
     getParentRoute: () => AuthRoute,
   } as any)
-const AuthFuelLogsLogIdIndexRoute = AuthFuelLogsLogIdIndexRouteImport.update({
-  id: '/fuel/logs/$logId/',
-  path: '/fuel/logs/$logId/',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthFuelExpensesExpenseIdIndexRoute =
-  AuthFuelExpensesExpenseIdIndexRouteImport.update({
-    id: '/fuel/expenses/$expenseId/',
-    path: '/fuel/expenses/$expenseId/',
+const AuthFleetTrucksTruckIdIndexRoute =
+  AuthFleetTrucksTruckIdIndexRouteImport.update({
+    id: '/fleet/trucks/$truckId/',
+    path: '/fleet/trucks/$truckId/',
+    getParentRoute: () => AuthRoute,
+  } as any)
+const AuthFleetTrailersTrailerIdIndexRoute =
+  AuthFleetTrailersTrailerIdIndexRouteImport.update({
+    id: '/fleet/trailers/$trailerId/',
+    path: '/fleet/trailers/$trailerId/',
     getParentRoute: () => AuthRoute,
   } as any)
 const AuthSettingsUsersUserIdEditRoute =
@@ -235,17 +226,28 @@ const AuthMaintenanceSchedulesScheduleIdEditRoute =
     path: '/maintenance/schedules/$scheduleId/edit',
     getParentRoute: () => AuthRoute,
   } as any)
+const AuthFuelLogsLogIdEditRoute = AuthFuelLogsLogIdEditRouteImport.update({
+  id: '/fuel/logs/$logId/edit',
+  path: '/fuel/logs/$logId/edit',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthFuelExpensesExpenseIdEditRoute =
+  AuthFuelExpensesExpenseIdEditRouteImport.update({
+    id: '/fuel/expenses/$expenseId/edit',
+    path: '/fuel/expenses/$expenseId/edit',
+    getParentRoute: () => AuthRoute,
+  } as any)
 const AuthFleetTrucksTruckIdEditRoute =
   AuthFleetTrucksTruckIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthFleetTrucksTruckIdRoute,
+    id: '/fleet/trucks/$truckId/edit',
+    path: '/fleet/trucks/$truckId/edit',
+    getParentRoute: () => AuthRoute,
   } as any)
 const AuthFleetTrailersTrailerIdEditRoute =
   AuthFleetTrailersTrailerIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthFleetTrailersTrailerIdRoute,
+    id: '/fleet/trailers/$trailerId/edit',
+    path: '/fleet/trailers/$trailerId/edit',
+    getParentRoute: () => AuthRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -253,7 +255,6 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
-  '/drivers/$driverId': typeof AuthDriversDriverIdRouteWithChildren
   '/drivers/new': typeof AuthDriversNewRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
@@ -264,9 +265,7 @@ export interface FileRoutesByFullPath {
   '/notifications/': typeof AuthNotificationsIndexRoute
   '/trips/': typeof AuthTripsIndexRoute
   '/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
-  '/fleet/trailers/$trailerId': typeof AuthFleetTrailersTrailerIdRouteWithChildren
   '/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
-  '/fleet/trucks/$truckId': typeof AuthFleetTrucksTruckIdRouteWithChildren
   '/fleet/trucks/new': typeof AuthFleetTrucksNewRoute
   '/fuel/expenses/new': typeof AuthFuelExpensesNewRoute
   '/fuel/logs/new': typeof AuthFuelLogsNewRoute
@@ -274,17 +273,20 @@ export interface FileRoutesByFullPath {
   '/maintenance/work-orders/new': typeof AuthMaintenanceWorkOrdersNewRoute
   '/settings/users/new': typeof AuthSettingsUsersNewRoute
   '/trips/$tripId/edit': typeof AuthTripsTripIdEditRoute
+  '/drivers/$driverId/': typeof AuthDriversDriverIdIndexRoute
   '/fleet/trailers/': typeof AuthFleetTrailersIndexRoute
   '/fleet/trucks/': typeof AuthFleetTrucksIndexRoute
   '/settings/users/': typeof AuthSettingsUsersIndexRoute
   '/trips/$tripId/': typeof AuthTripsTripIdIndexRoute
   '/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
   '/fleet/trucks/$truckId/edit': typeof AuthFleetTrucksTruckIdEditRoute
+  '/fuel/expenses/$expenseId/edit': typeof AuthFuelExpensesExpenseIdEditRoute
+  '/fuel/logs/$logId/edit': typeof AuthFuelLogsLogIdEditRoute
   '/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
-  '/fuel/expenses/$expenseId/': typeof AuthFuelExpensesExpenseIdIndexRoute
-  '/fuel/logs/$logId/': typeof AuthFuelLogsLogIdIndexRoute
+  '/fleet/trailers/$trailerId/': typeof AuthFleetTrailersTrailerIdIndexRoute
+  '/fleet/trucks/$truckId/': typeof AuthFleetTrucksTruckIdIndexRoute
   '/maintenance/work-orders/$workOrderId/': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -292,7 +294,6 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
-  '/drivers/$driverId': typeof AuthDriversDriverIdRouteWithChildren
   '/drivers/new': typeof AuthDriversNewRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
@@ -303,9 +304,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AuthNotificationsIndexRoute
   '/trips': typeof AuthTripsIndexRoute
   '/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
-  '/fleet/trailers/$trailerId': typeof AuthFleetTrailersTrailerIdRouteWithChildren
   '/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
-  '/fleet/trucks/$truckId': typeof AuthFleetTrucksTruckIdRouteWithChildren
   '/fleet/trucks/new': typeof AuthFleetTrucksNewRoute
   '/fuel/expenses/new': typeof AuthFuelExpensesNewRoute
   '/fuel/logs/new': typeof AuthFuelLogsNewRoute
@@ -313,17 +312,20 @@ export interface FileRoutesByTo {
   '/maintenance/work-orders/new': typeof AuthMaintenanceWorkOrdersNewRoute
   '/settings/users/new': typeof AuthSettingsUsersNewRoute
   '/trips/$tripId/edit': typeof AuthTripsTripIdEditRoute
+  '/drivers/$driverId': typeof AuthDriversDriverIdIndexRoute
   '/fleet/trailers': typeof AuthFleetTrailersIndexRoute
   '/fleet/trucks': typeof AuthFleetTrucksIndexRoute
   '/settings/users': typeof AuthSettingsUsersIndexRoute
   '/trips/$tripId': typeof AuthTripsTripIdIndexRoute
   '/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
   '/fleet/trucks/$truckId/edit': typeof AuthFleetTrucksTruckIdEditRoute
+  '/fuel/expenses/$expenseId/edit': typeof AuthFuelExpensesExpenseIdEditRoute
+  '/fuel/logs/$logId/edit': typeof AuthFuelLogsLogIdEditRoute
   '/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
-  '/fuel/expenses/$expenseId': typeof AuthFuelExpensesExpenseIdIndexRoute
-  '/fuel/logs/$logId': typeof AuthFuelLogsLogIdIndexRoute
+  '/fleet/trailers/$trailerId': typeof AuthFleetTrailersTrailerIdIndexRoute
+  '/fleet/trucks/$truckId': typeof AuthFleetTrucksTruckIdIndexRoute
   '/maintenance/work-orders/$workOrderId': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
 export interface FileRoutesById {
@@ -333,7 +335,6 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
-  '/_auth/drivers/$driverId': typeof AuthDriversDriverIdRouteWithChildren
   '/_auth/drivers/new': typeof AuthDriversNewRoute
   '/_auth/settings/profile': typeof AuthSettingsProfileRoute
   '/_auth/settings/system': typeof AuthSettingsSystemRoute
@@ -344,9 +345,7 @@ export interface FileRoutesById {
   '/_auth/notifications/': typeof AuthNotificationsIndexRoute
   '/_auth/trips/': typeof AuthTripsIndexRoute
   '/_auth/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
-  '/_auth/fleet/trailers/$trailerId': typeof AuthFleetTrailersTrailerIdRouteWithChildren
   '/_auth/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
-  '/_auth/fleet/trucks/$truckId': typeof AuthFleetTrucksTruckIdRouteWithChildren
   '/_auth/fleet/trucks/new': typeof AuthFleetTrucksNewRoute
   '/_auth/fuel/expenses/new': typeof AuthFuelExpensesNewRoute
   '/_auth/fuel/logs/new': typeof AuthFuelLogsNewRoute
@@ -354,17 +353,20 @@ export interface FileRoutesById {
   '/_auth/maintenance/work-orders/new': typeof AuthMaintenanceWorkOrdersNewRoute
   '/_auth/settings/users/new': typeof AuthSettingsUsersNewRoute
   '/_auth/trips/$tripId/edit': typeof AuthTripsTripIdEditRoute
+  '/_auth/drivers/$driverId/': typeof AuthDriversDriverIdIndexRoute
   '/_auth/fleet/trailers/': typeof AuthFleetTrailersIndexRoute
   '/_auth/fleet/trucks/': typeof AuthFleetTrucksIndexRoute
   '/_auth/settings/users/': typeof AuthSettingsUsersIndexRoute
   '/_auth/trips/$tripId/': typeof AuthTripsTripIdIndexRoute
   '/_auth/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
   '/_auth/fleet/trucks/$truckId/edit': typeof AuthFleetTrucksTruckIdEditRoute
+  '/_auth/fuel/expenses/$expenseId/edit': typeof AuthFuelExpensesExpenseIdEditRoute
+  '/_auth/fuel/logs/$logId/edit': typeof AuthFuelLogsLogIdEditRoute
   '/_auth/maintenance/schedules/$scheduleId/edit': typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   '/_auth/maintenance/work-orders/$workOrderId/edit': typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   '/_auth/settings/users/$userId/edit': typeof AuthSettingsUsersUserIdEditRoute
-  '/_auth/fuel/expenses/$expenseId/': typeof AuthFuelExpensesExpenseIdIndexRoute
-  '/_auth/fuel/logs/$logId/': typeof AuthFuelLogsLogIdIndexRoute
+  '/_auth/fleet/trailers/$trailerId/': typeof AuthFleetTrailersTrailerIdIndexRoute
+  '/_auth/fleet/trucks/$truckId/': typeof AuthFleetTrucksTruckIdIndexRoute
   '/_auth/maintenance/work-orders/$workOrderId/': typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -374,7 +376,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/dashboard'
-    | '/drivers/$driverId'
     | '/drivers/new'
     | '/settings/profile'
     | '/settings/system'
@@ -385,9 +386,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/trips/'
     | '/drivers/$driverId/edit'
-    | '/fleet/trailers/$trailerId'
     | '/fleet/trailers/new'
-    | '/fleet/trucks/$truckId'
     | '/fleet/trucks/new'
     | '/fuel/expenses/new'
     | '/fuel/logs/new'
@@ -395,17 +394,20 @@ export interface FileRouteTypes {
     | '/maintenance/work-orders/new'
     | '/settings/users/new'
     | '/trips/$tripId/edit'
+    | '/drivers/$driverId/'
     | '/fleet/trailers/'
     | '/fleet/trucks/'
     | '/settings/users/'
     | '/trips/$tripId/'
     | '/fleet/trailers/$trailerId/edit'
     | '/fleet/trucks/$truckId/edit'
+    | '/fuel/expenses/$expenseId/edit'
+    | '/fuel/logs/$logId/edit'
     | '/maintenance/schedules/$scheduleId/edit'
     | '/maintenance/work-orders/$workOrderId/edit'
     | '/settings/users/$userId/edit'
-    | '/fuel/expenses/$expenseId/'
-    | '/fuel/logs/$logId/'
+    | '/fleet/trailers/$trailerId/'
+    | '/fleet/trucks/$truckId/'
     | '/maintenance/work-orders/$workOrderId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -413,7 +415,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/dashboard'
-    | '/drivers/$driverId'
     | '/drivers/new'
     | '/settings/profile'
     | '/settings/system'
@@ -424,9 +425,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/trips'
     | '/drivers/$driverId/edit'
-    | '/fleet/trailers/$trailerId'
     | '/fleet/trailers/new'
-    | '/fleet/trucks/$truckId'
     | '/fleet/trucks/new'
     | '/fuel/expenses/new'
     | '/fuel/logs/new'
@@ -434,17 +433,20 @@ export interface FileRouteTypes {
     | '/maintenance/work-orders/new'
     | '/settings/users/new'
     | '/trips/$tripId/edit'
+    | '/drivers/$driverId'
     | '/fleet/trailers'
     | '/fleet/trucks'
     | '/settings/users'
     | '/trips/$tripId'
     | '/fleet/trailers/$trailerId/edit'
     | '/fleet/trucks/$truckId/edit'
+    | '/fuel/expenses/$expenseId/edit'
+    | '/fuel/logs/$logId/edit'
     | '/maintenance/schedules/$scheduleId/edit'
     | '/maintenance/work-orders/$workOrderId/edit'
     | '/settings/users/$userId/edit'
-    | '/fuel/expenses/$expenseId'
-    | '/fuel/logs/$logId'
+    | '/fleet/trailers/$trailerId'
+    | '/fleet/trucks/$truckId'
     | '/maintenance/work-orders/$workOrderId'
   id:
     | '__root__'
@@ -453,7 +455,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/_auth/dashboard'
-    | '/_auth/drivers/$driverId'
     | '/_auth/drivers/new'
     | '/_auth/settings/profile'
     | '/_auth/settings/system'
@@ -464,9 +465,7 @@ export interface FileRouteTypes {
     | '/_auth/notifications/'
     | '/_auth/trips/'
     | '/_auth/drivers/$driverId/edit'
-    | '/_auth/fleet/trailers/$trailerId'
     | '/_auth/fleet/trailers/new'
-    | '/_auth/fleet/trucks/$truckId'
     | '/_auth/fleet/trucks/new'
     | '/_auth/fuel/expenses/new'
     | '/_auth/fuel/logs/new'
@@ -474,17 +473,20 @@ export interface FileRouteTypes {
     | '/_auth/maintenance/work-orders/new'
     | '/_auth/settings/users/new'
     | '/_auth/trips/$tripId/edit'
+    | '/_auth/drivers/$driverId/'
     | '/_auth/fleet/trailers/'
     | '/_auth/fleet/trucks/'
     | '/_auth/settings/users/'
     | '/_auth/trips/$tripId/'
     | '/_auth/fleet/trailers/$trailerId/edit'
     | '/_auth/fleet/trucks/$truckId/edit'
+    | '/_auth/fuel/expenses/$expenseId/edit'
+    | '/_auth/fuel/logs/$logId/edit'
     | '/_auth/maintenance/schedules/$scheduleId/edit'
     | '/_auth/maintenance/work-orders/$workOrderId/edit'
     | '/_auth/settings/users/$userId/edit'
-    | '/_auth/fuel/expenses/$expenseId/'
-    | '/_auth/fuel/logs/$logId/'
+    | '/_auth/fleet/trailers/$trailerId/'
+    | '/_auth/fleet/trucks/$truckId/'
     | '/_auth/maintenance/work-orders/$workOrderId/'
   fileRoutesById: FileRoutesById
 }
@@ -595,13 +597,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDriversNewRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/drivers/$driverId': {
-      id: '/_auth/drivers/$driverId'
-      path: '/drivers/$driverId'
-      fullPath: '/drivers/$driverId'
-      preLoaderRoute: typeof AuthDriversDriverIdRouteImport
-      parentRoute: typeof AuthRoute
-    }
     '/_auth/trips/$tripId/': {
       id: '/_auth/trips/$tripId/'
       path: '/trips/$tripId'
@@ -628,6 +623,13 @@ declare module '@tanstack/react-router' {
       path: '/fleet/trailers'
       fullPath: '/fleet/trailers/'
       preLoaderRoute: typeof AuthFleetTrailersIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/drivers/$driverId/': {
+      id: '/_auth/drivers/$driverId/'
+      path: '/drivers/$driverId'
+      fullPath: '/drivers/$driverId/'
+      preLoaderRoute: typeof AuthDriversDriverIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/trips/$tripId/edit': {
@@ -679,13 +681,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthFleetTrucksNewRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/fleet/trucks/$truckId': {
-      id: '/_auth/fleet/trucks/$truckId'
-      path: '/fleet/trucks/$truckId'
-      fullPath: '/fleet/trucks/$truckId'
-      preLoaderRoute: typeof AuthFleetTrucksTruckIdRouteImport
-      parentRoute: typeof AuthRoute
-    }
     '/_auth/fleet/trailers/new': {
       id: '/_auth/fleet/trailers/new'
       path: '/fleet/trailers/new'
@@ -693,19 +688,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthFleetTrailersNewRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/fleet/trailers/$trailerId': {
-      id: '/_auth/fleet/trailers/$trailerId'
-      path: '/fleet/trailers/$trailerId'
-      fullPath: '/fleet/trailers/$trailerId'
-      preLoaderRoute: typeof AuthFleetTrailersTrailerIdRouteImport
-      parentRoute: typeof AuthRoute
-    }
     '/_auth/drivers/$driverId/edit': {
       id: '/_auth/drivers/$driverId/edit'
-      path: '/edit'
+      path: '/drivers/$driverId/edit'
       fullPath: '/drivers/$driverId/edit'
       preLoaderRoute: typeof AuthDriversDriverIdEditRouteImport
-      parentRoute: typeof AuthDriversDriverIdRoute
+      parentRoute: typeof AuthRoute
     }
     '/_auth/maintenance/work-orders/$workOrderId/': {
       id: '/_auth/maintenance/work-orders/$workOrderId/'
@@ -714,18 +702,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/fuel/logs/$logId/': {
-      id: '/_auth/fuel/logs/$logId/'
-      path: '/fuel/logs/$logId'
-      fullPath: '/fuel/logs/$logId/'
-      preLoaderRoute: typeof AuthFuelLogsLogIdIndexRouteImport
+    '/_auth/fleet/trucks/$truckId/': {
+      id: '/_auth/fleet/trucks/$truckId/'
+      path: '/fleet/trucks/$truckId'
+      fullPath: '/fleet/trucks/$truckId/'
+      preLoaderRoute: typeof AuthFleetTrucksTruckIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/fuel/expenses/$expenseId/': {
-      id: '/_auth/fuel/expenses/$expenseId/'
-      path: '/fuel/expenses/$expenseId'
-      fullPath: '/fuel/expenses/$expenseId/'
-      preLoaderRoute: typeof AuthFuelExpensesExpenseIdIndexRouteImport
+    '/_auth/fleet/trailers/$trailerId/': {
+      id: '/_auth/fleet/trailers/$trailerId/'
+      path: '/fleet/trailers/$trailerId'
+      fullPath: '/fleet/trailers/$trailerId/'
+      preLoaderRoute: typeof AuthFleetTrailersTrailerIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/settings/users/$userId/edit': {
@@ -749,65 +737,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthMaintenanceSchedulesScheduleIdEditRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/fuel/logs/$logId/edit': {
+      id: '/_auth/fuel/logs/$logId/edit'
+      path: '/fuel/logs/$logId/edit'
+      fullPath: '/fuel/logs/$logId/edit'
+      preLoaderRoute: typeof AuthFuelLogsLogIdEditRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/fuel/expenses/$expenseId/edit': {
+      id: '/_auth/fuel/expenses/$expenseId/edit'
+      path: '/fuel/expenses/$expenseId/edit'
+      fullPath: '/fuel/expenses/$expenseId/edit'
+      preLoaderRoute: typeof AuthFuelExpensesExpenseIdEditRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/fleet/trucks/$truckId/edit': {
       id: '/_auth/fleet/trucks/$truckId/edit'
-      path: '/edit'
+      path: '/fleet/trucks/$truckId/edit'
       fullPath: '/fleet/trucks/$truckId/edit'
       preLoaderRoute: typeof AuthFleetTrucksTruckIdEditRouteImport
-      parentRoute: typeof AuthFleetTrucksTruckIdRoute
+      parentRoute: typeof AuthRoute
     }
     '/_auth/fleet/trailers/$trailerId/edit': {
       id: '/_auth/fleet/trailers/$trailerId/edit'
-      path: '/edit'
+      path: '/fleet/trailers/$trailerId/edit'
       fullPath: '/fleet/trailers/$trailerId/edit'
       preLoaderRoute: typeof AuthFleetTrailersTrailerIdEditRouteImport
-      parentRoute: typeof AuthFleetTrailersTrailerIdRoute
+      parentRoute: typeof AuthRoute
     }
   }
 }
 
-interface AuthDriversDriverIdRouteChildren {
-  AuthDriversDriverIdEditRoute: typeof AuthDriversDriverIdEditRoute
-}
-
-const AuthDriversDriverIdRouteChildren: AuthDriversDriverIdRouteChildren = {
-  AuthDriversDriverIdEditRoute: AuthDriversDriverIdEditRoute,
-}
-
-const AuthDriversDriverIdRouteWithChildren =
-  AuthDriversDriverIdRoute._addFileChildren(AuthDriversDriverIdRouteChildren)
-
-interface AuthFleetTrailersTrailerIdRouteChildren {
-  AuthFleetTrailersTrailerIdEditRoute: typeof AuthFleetTrailersTrailerIdEditRoute
-}
-
-const AuthFleetTrailersTrailerIdRouteChildren: AuthFleetTrailersTrailerIdRouteChildren =
-  {
-    AuthFleetTrailersTrailerIdEditRoute: AuthFleetTrailersTrailerIdEditRoute,
-  }
-
-const AuthFleetTrailersTrailerIdRouteWithChildren =
-  AuthFleetTrailersTrailerIdRoute._addFileChildren(
-    AuthFleetTrailersTrailerIdRouteChildren,
-  )
-
-interface AuthFleetTrucksTruckIdRouteChildren {
-  AuthFleetTrucksTruckIdEditRoute: typeof AuthFleetTrucksTruckIdEditRoute
-}
-
-const AuthFleetTrucksTruckIdRouteChildren: AuthFleetTrucksTruckIdRouteChildren =
-  {
-    AuthFleetTrucksTruckIdEditRoute: AuthFleetTrucksTruckIdEditRoute,
-  }
-
-const AuthFleetTrucksTruckIdRouteWithChildren =
-  AuthFleetTrucksTruckIdRoute._addFileChildren(
-    AuthFleetTrucksTruckIdRouteChildren,
-  )
-
 interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
-  AuthDriversDriverIdRoute: typeof AuthDriversDriverIdRouteWithChildren
   AuthDriversNewRoute: typeof AuthDriversNewRoute
   AuthSettingsProfileRoute: typeof AuthSettingsProfileRoute
   AuthSettingsSystemRoute: typeof AuthSettingsSystemRoute
@@ -817,9 +779,8 @@ interface AuthRouteChildren {
   AuthMaintenanceIndexRoute: typeof AuthMaintenanceIndexRoute
   AuthNotificationsIndexRoute: typeof AuthNotificationsIndexRoute
   AuthTripsIndexRoute: typeof AuthTripsIndexRoute
-  AuthFleetTrailersTrailerIdRoute: typeof AuthFleetTrailersTrailerIdRouteWithChildren
+  AuthDriversDriverIdEditRoute: typeof AuthDriversDriverIdEditRoute
   AuthFleetTrailersNewRoute: typeof AuthFleetTrailersNewRoute
-  AuthFleetTrucksTruckIdRoute: typeof AuthFleetTrucksTruckIdRouteWithChildren
   AuthFleetTrucksNewRoute: typeof AuthFleetTrucksNewRoute
   AuthFuelExpensesNewRoute: typeof AuthFuelExpensesNewRoute
   AuthFuelLogsNewRoute: typeof AuthFuelLogsNewRoute
@@ -827,21 +788,25 @@ interface AuthRouteChildren {
   AuthMaintenanceWorkOrdersNewRoute: typeof AuthMaintenanceWorkOrdersNewRoute
   AuthSettingsUsersNewRoute: typeof AuthSettingsUsersNewRoute
   AuthTripsTripIdEditRoute: typeof AuthTripsTripIdEditRoute
+  AuthDriversDriverIdIndexRoute: typeof AuthDriversDriverIdIndexRoute
   AuthFleetTrailersIndexRoute: typeof AuthFleetTrailersIndexRoute
   AuthFleetTrucksIndexRoute: typeof AuthFleetTrucksIndexRoute
   AuthSettingsUsersIndexRoute: typeof AuthSettingsUsersIndexRoute
   AuthTripsTripIdIndexRoute: typeof AuthTripsTripIdIndexRoute
+  AuthFleetTrailersTrailerIdEditRoute: typeof AuthFleetTrailersTrailerIdEditRoute
+  AuthFleetTrucksTruckIdEditRoute: typeof AuthFleetTrucksTruckIdEditRoute
+  AuthFuelExpensesExpenseIdEditRoute: typeof AuthFuelExpensesExpenseIdEditRoute
+  AuthFuelLogsLogIdEditRoute: typeof AuthFuelLogsLogIdEditRoute
   AuthMaintenanceSchedulesScheduleIdEditRoute: typeof AuthMaintenanceSchedulesScheduleIdEditRoute
   AuthMaintenanceWorkOrdersWorkOrderIdEditRoute: typeof AuthMaintenanceWorkOrdersWorkOrderIdEditRoute
   AuthSettingsUsersUserIdEditRoute: typeof AuthSettingsUsersUserIdEditRoute
-  AuthFuelExpensesExpenseIdIndexRoute: typeof AuthFuelExpensesExpenseIdIndexRoute
-  AuthFuelLogsLogIdIndexRoute: typeof AuthFuelLogsLogIdIndexRoute
+  AuthFleetTrailersTrailerIdIndexRoute: typeof AuthFleetTrailersTrailerIdIndexRoute
+  AuthFleetTrucksTruckIdIndexRoute: typeof AuthFleetTrucksTruckIdIndexRoute
   AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute: typeof AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
-  AuthDriversDriverIdRoute: AuthDriversDriverIdRouteWithChildren,
   AuthDriversNewRoute: AuthDriversNewRoute,
   AuthSettingsProfileRoute: AuthSettingsProfileRoute,
   AuthSettingsSystemRoute: AuthSettingsSystemRoute,
@@ -851,9 +816,8 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthMaintenanceIndexRoute: AuthMaintenanceIndexRoute,
   AuthNotificationsIndexRoute: AuthNotificationsIndexRoute,
   AuthTripsIndexRoute: AuthTripsIndexRoute,
-  AuthFleetTrailersTrailerIdRoute: AuthFleetTrailersTrailerIdRouteWithChildren,
+  AuthDriversDriverIdEditRoute: AuthDriversDriverIdEditRoute,
   AuthFleetTrailersNewRoute: AuthFleetTrailersNewRoute,
-  AuthFleetTrucksTruckIdRoute: AuthFleetTrucksTruckIdRouteWithChildren,
   AuthFleetTrucksNewRoute: AuthFleetTrucksNewRoute,
   AuthFuelExpensesNewRoute: AuthFuelExpensesNewRoute,
   AuthFuelLogsNewRoute: AuthFuelLogsNewRoute,
@@ -861,17 +825,22 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthMaintenanceWorkOrdersNewRoute: AuthMaintenanceWorkOrdersNewRoute,
   AuthSettingsUsersNewRoute: AuthSettingsUsersNewRoute,
   AuthTripsTripIdEditRoute: AuthTripsTripIdEditRoute,
+  AuthDriversDriverIdIndexRoute: AuthDriversDriverIdIndexRoute,
   AuthFleetTrailersIndexRoute: AuthFleetTrailersIndexRoute,
   AuthFleetTrucksIndexRoute: AuthFleetTrucksIndexRoute,
   AuthSettingsUsersIndexRoute: AuthSettingsUsersIndexRoute,
   AuthTripsTripIdIndexRoute: AuthTripsTripIdIndexRoute,
+  AuthFleetTrailersTrailerIdEditRoute: AuthFleetTrailersTrailerIdEditRoute,
+  AuthFleetTrucksTruckIdEditRoute: AuthFleetTrucksTruckIdEditRoute,
+  AuthFuelExpensesExpenseIdEditRoute: AuthFuelExpensesExpenseIdEditRoute,
+  AuthFuelLogsLogIdEditRoute: AuthFuelLogsLogIdEditRoute,
   AuthMaintenanceSchedulesScheduleIdEditRoute:
     AuthMaintenanceSchedulesScheduleIdEditRoute,
   AuthMaintenanceWorkOrdersWorkOrderIdEditRoute:
     AuthMaintenanceWorkOrdersWorkOrderIdEditRoute,
   AuthSettingsUsersUserIdEditRoute: AuthSettingsUsersUserIdEditRoute,
-  AuthFuelExpensesExpenseIdIndexRoute: AuthFuelExpensesExpenseIdIndexRoute,
-  AuthFuelLogsLogIdIndexRoute: AuthFuelLogsLogIdIndexRoute,
+  AuthFleetTrailersTrailerIdIndexRoute: AuthFleetTrailersTrailerIdIndexRoute,
+  AuthFleetTrucksTruckIdIndexRoute: AuthFleetTrucksTruckIdIndexRoute,
   AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute:
     AuthMaintenanceWorkOrdersWorkOrderIdIndexRoute,
 }

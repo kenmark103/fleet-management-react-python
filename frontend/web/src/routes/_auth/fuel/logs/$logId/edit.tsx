@@ -21,7 +21,7 @@ import { FuelLogForm as EditFuelLogForm } from "../../../../../components/forms/
 import { useFuelLog, useUpdateFuelLog } from "../../../../../hooks/useFuel";
 import { toast as editToast } from "sonner";
 
-export const Route = createEditFileRoute("/_auth/fuel/logs/$logId/")({
+export const Route = createEditFileRoute("/_auth/fuel/logs/$logId/edit")({
   component: EditFuelLogPage,
 });
 

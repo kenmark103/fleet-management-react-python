@@ -5,6 +5,10 @@
  * Pure data functions for fleet resources (trucks + trailers).
  * Called by useFleet.ts hooks — not used directly in components.
  * Uses central axios instance for automatic token refresh on 401.
+ *
+ * Changes:
+ *   - listTrucks / listTrailers now accept ListParams and return
+ *     PaginatedResponse<T> instead of T[] — enables server-side pagination.
  */
 
 import api from './api'
@@ -12,6 +16,7 @@ import type {
   Truck, Trailer, FleetSummary,
   TruckStatus, TrailerStatus,
 } from '../types/fleet'
+import type { PaginatedResponse } from '../types/api'
 
 export interface TruckPayload {
   plateNumber:           string
@@ -41,6 +46,13 @@ export interface TrailerPayload {
   notes?:                string
 }
 
+// Shared params shape for all paginated list endpoints
+export interface ListParams {
+  page?:     number
+  pageSize?: number
+  search?:   string
+}
+
 // ── Fleet Summary ─────────────────────────────────────────────────────────────
 
 export const getFleetSummary = () =>
@@ -48,8 +60,19 @@ export const getFleetSummary = () =>
 
 // ── Trucks ────────────────────────────────────────────────────────────────────
 
-export const listTrucks = (status?: TruckStatus) =>
-  api.get<Truck[]>(`/api/v1/fleet/trucks${status ? `?status=${status}` : ''}`).then(r => r.data)
+export const listTrucks = (
+  status?: TruckStatus,
+  params: ListParams = {},
+): Promise<PaginatedResponse<Truck>> => {
+  const { page = 1, pageSize = 20, search } = params
+  const qs = new URLSearchParams({
+    page:      String(page),
+    page_size: String(pageSize),
+    ...(status && { status }),
+    ...(search && { search }),
+  })
+  return api.get<PaginatedResponse<Truck>>(`/api/v1/fleet/trucks?${qs}`).then(r => r.data)
+}
 
 export const getTruck = (id: string) =>
   api.get<Truck>(`/api/v1/fleet/trucks/${id}`).then(r => r.data)
@@ -65,8 +88,19 @@ export const deleteTruck = (id: string) =>
 
 // ── Trailers ──────────────────────────────────────────────────────────────────
 
-export const listTrailers = (status?: TrailerStatus) =>
-  api.get<Trailer[]>(`/api/v1/fleet/trailers${status ? `?status=${status}` : ''}`).then(r => r.data)
+export const listTrailers = (
+  status?: TrailerStatus,
+  params: ListParams = {},
+): Promise<PaginatedResponse<Trailer>> => {
+  const { page = 1, pageSize = 20, search } = params
+  const qs = new URLSearchParams({
+    page:      String(page),
+    page_size: String(pageSize),
+    ...(status && { status }),
+    ...(search && { search }),
+  })
+  return api.get<PaginatedResponse<Trailer>>(`/api/v1/fleet/trailers?${qs}`).then(r => r.data)
+}
 
 export const getTrailer = (id: string) =>
   api.get<Trailer>(`/api/v1/fleet/trailers/${id}`).then(r => r.data)

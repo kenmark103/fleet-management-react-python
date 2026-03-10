@@ -22,7 +22,7 @@ import { ExpenseForm as EditExpenseForm } from "../../../../../components/forms/
 import { useExpense, useUpdateExpense } from "../../../../../hooks/useFuel";
 import { toast as editToast } from "sonner";
 
-export const Route = createEditRoute("/_auth/fuel/expenses/$expenseId/")({
+export const Route = createEditRoute("/_auth/fuel/expenses/$expenseId/edit")({
   component: EditExpensePage,
 });
 

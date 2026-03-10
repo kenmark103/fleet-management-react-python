@@ -213,7 +213,7 @@ export function useDashboardActivity() {
 export function useDashboardExpiryAlerts() {
   const trucks = useQuery({
     queryKey:  dashboardKeys.expiryTrucks,
-    queryFn:   () => apiClient.get<DashTruck[]>('/api/v1/fleet/trucks?limit=100').then(r => r.data),
+    queryFn:   () => apiClient.get<PaginatedResponse<DashTruck>>('/api/v1/fleet/trucks?page_size=100').then(r => r.data.data),
     staleTime: 10 * 60 * 1000,
   })
 
