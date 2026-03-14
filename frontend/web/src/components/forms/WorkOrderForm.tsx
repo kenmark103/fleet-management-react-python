@@ -45,7 +45,7 @@ export function WorkOrderForm({ initial, onSubmit, isLoading }: WorkOrderFormPro
 
   const { data: trucks } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200&status=active").then(r => r.data),
+    queryFn:  () => apiClient.get<{ data: { id: string; plateNumber: string }[] }>("/api/v1/fleet/trucks?page_size=200&status=active").then(r => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 

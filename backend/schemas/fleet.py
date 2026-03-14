@@ -2,7 +2,11 @@
 schemas/fleet.py
 Fleet Management System
 
-Truck and Trailer Pydantic schemas.
+Changes (Stage 2):
+  - TruckBase / TruckCreate / TruckUpdate / TruckResponse:
+      added wheel_config, gross_weight_tons, axle_load_tons (all Optional)
+  - TrailerBase / TrailerCreate / TrailerUpdate / TrailerResponse:
+      added axles (Optional[int])
 """
 
 from __future__ import annotations
@@ -23,11 +27,15 @@ class TruckBase(CamelBase):
     status:                 TruckStatus
     odometer_km:            float
     fuel_type:              FuelType
-    vin:                    Optional[str] = None
-    color:                  Optional[str] = None
+    vin:                    Optional[str]      = None
+    color:                  Optional[str]      = None
     insurance_expiry_date:  Optional[datetime] = None
     inspection_expiry_date: Optional[datetime] = None
-    notes:                  Optional[str] = None
+    notes:                  Optional[str]      = None
+    # Catalog spec fields — populated when a known make/model is selected
+    wheel_config:           Optional[str]   = None
+    gross_weight_tons:      Optional[float] = None
+    axle_load_tons:         Optional[float] = None
 
 
 class TruckCreate(TruckBase):
@@ -49,6 +57,9 @@ class TruckUpdate(CamelBase):
     insurance_expiry_date:  Optional[datetime]    = None
     inspection_expiry_date: Optional[datetime]    = None
     notes:                  Optional[str]         = None
+    wheel_config:           Optional[str]         = None
+    gross_weight_tons:      Optional[float]       = None
+    axle_load_tons:         Optional[float]       = None
 
 
 class TruckResponse(TruckBase):
@@ -97,10 +108,12 @@ class TrailerBase(CamelBase):
     year:                   int
     status:                 TrailerStatus
     type:                   TrailerType
-    capacity_tons:          Optional[float]   = None
+    capacity_tons:          Optional[float]    = None
     insurance_expiry_date:  Optional[datetime] = None
     inspection_expiry_date: Optional[datetime] = None
-    notes:                  Optional[str]     = None
+    notes:                  Optional[str]      = None
+    # Catalog spec field
+    axles:                  Optional[int]      = None
 
 
 class TrailerCreate(TrailerBase):
@@ -120,6 +133,7 @@ class TrailerUpdate(CamelBase):
     insurance_expiry_date:  Optional[datetime]      = None
     inspection_expiry_date: Optional[datetime]      = None
     notes:                  Optional[str]           = None
+    axles:                  Optional[int]           = None
 
 
 class TrailerResponse(TrailerBase):
@@ -140,11 +154,12 @@ class TrailerDocumentResponse(CamelBase):
     uploaded_at: datetime
     uploaded_by: str
 
+
 class FleetSummary(CamelBase):
-    total_trucks:      int
-    active_trucks:     int
+    total_trucks:       int
+    active_trucks:      int
     in_progress_trucks: int
-    inactive_trucks:   int
-    total_trailers:    int
-    active_trailers:   int
-    inactive_trailers: int
+    inactive_trucks:    int
+    total_trailers:     int
+    active_trailers:    int
+    inactive_trailers:  int

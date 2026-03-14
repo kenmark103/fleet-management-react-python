@@ -2,13 +2,9 @@
  * lib/fleet-api.ts
  * Fleet Management System
  *
- * Pure data functions for fleet resources (trucks + trailers).
- * Called by useFleet.ts hooks — not used directly in components.
- * Uses central axios instance for automatic token refresh on 401.
- *
- * Changes:
- *   - listTrucks / listTrailers now accept ListParams and return
- *     PaginatedResponse<T> instead of T[] — enables server-side pagination.
+ * Changes (Stage 2):
+ *   - TruckPayload: added wheelConfig, grossWeightTons, axleLoadTons (optional)
+ *   - TrailerPayload: added axles (optional)
  */
 
 import api from './api'
@@ -31,6 +27,10 @@ export interface TruckPayload {
   insuranceExpiryDate?:  string
   inspectionExpiryDate?: string
   notes?:                string
+  // Catalog spec fields — sent when a known model is selected in the form
+  wheelConfig?:          string
+  grossWeightTons?:      number
+  axleLoadTons?:         number
 }
 
 export interface TrailerPayload {
@@ -44,9 +44,10 @@ export interface TrailerPayload {
   insuranceExpiryDate?:  string
   inspectionExpiryDate?: string
   notes?:                string
+  // Catalog spec field
+  axles?:                number
 }
 
-// Shared params shape for all paginated list endpoints
 export interface ListParams {
   page?:     number
   pageSize?: number

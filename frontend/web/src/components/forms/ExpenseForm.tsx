@@ -61,7 +61,7 @@ export function ExpenseForm({ initial, onSubmit, isLoading }: ExpenseFormProps) 
   // ── Selectors ─────────────────────────────────────────────────────────────
   const { data: trucksData } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200").then(r => r.data),
+    queryFn:  () => apiClient.get<{ data: { id: string; plateNumber: string }[] }>("/api/v1/fleet/trucks?page_size=200").then(r => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -73,7 +73,7 @@ export function ExpenseForm({ initial, onSubmit, isLoading }: ExpenseFormProps) 
 
   const { data: tripsData } = useQuery({
     queryKey: ["trips-select-all"],
-    queryFn:  () => apiClient.get<{ data: { id: string; tripNumber: string; origin: string; destination: string }[] }>("/api/v1/trips?limit=100").then(r => r.data.data),
+    queryFn:  () => apiClient.get<{ data: { id: string; tripNumber: string; origin: string; destination: string }[] }>("/api/v1/trips?page_size=100").then(r => r.data.data),
     staleTime: 2 * 60 * 1000,
   });
 

@@ -68,7 +68,7 @@ export function FuelLogForm({ initial, onSubmit, isLoading }: FuelLogFormProps) 
   // ── Fetch trucks ──────────────────────────────────────────────────────────
   const { data: trucksData } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200&status=active").then(r => r.data),
+    queryFn:  () => apiClient.get<{ data: { id: string; plateNumber: string }[] }>("/api/v1/fleet/trucks?page_size=200&status=active").then(r => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -98,7 +98,7 @@ export function FuelLogForm({ initial, onSubmit, isLoading }: FuelLogFormProps) 
   const { data: tripsData } = useQuery({
     queryKey: ["trips-select", truckId],
     queryFn:  () => apiClient.get<{ data: { id: string; tripNumber: string; origin: string; destination: string }[] }>(
-      `/api/v1/trips?assignedTruckId=${truckId}&status=pending&status=en-route&limit=50`
+      `/api/v1/trips?assignedTruckId=${truckId}&status=pending&status=en-route&page_size=50`
     ).then(r => r.data.data),
     staleTime: 2 * 60 * 1000,
     enabled: Boolean(truckId),

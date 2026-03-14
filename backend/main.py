@@ -19,6 +19,7 @@ from routes.maintenance import router as maintenance_router
 from routes.settings import settings_router
 from routes.trips import router as trips_router
 from routes.notifications import router as notifications_router
+from routes.vehicles import router as vehicle_router
 from services.expiry_checker import daily_expiry_check_loop
 from scripts.seed_admin import seed
 
@@ -72,6 +73,6 @@ app.include_router(settings_router, prefix="/api/v1")
 app.include_router(trips_router, prefix="/api/v1")
 app.include_router(maintenance_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
-
+app.include_router(vehicle_router, prefix="/api/v1")
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8000)

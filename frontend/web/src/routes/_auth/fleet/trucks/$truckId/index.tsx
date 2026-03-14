@@ -2,23 +2,28 @@
  * routes/_auth/fleet/trucks/$truckId/index.tsx
  * Route: /fleet/trucks/:truckId
  *
- * UI fixes:
- *   - Fixed broken template literals: "..." → `...` for odometer + VIN rows
- *   - Mobile nav: top bar wraps on small screens instead of overflowing
+ * Changes (Stage 3):
+ *   - Layout converted to tabs: "Overview" (existing content) + "Trip History"
+ *   - Trip History tab uses useTrips({ truckId }) — server-filtered, paginated
  */
 
 import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Pencil, Trash2, ArrowLeft, Truck, Gauge, Droplets, Calendar } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft, Truck, Gauge, Droplets, Calendar, MapPin } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
 import { LoadingSpinner } from "../../../../../components/atoms/LoadingSpinner";
 import { ConfirmDialog } from "../../../../../components/atoms/ConfirmDialog";
 import { TruckStatusBadge } from "../../../../../components/fleet/StatusBadge";
+import { DataTable, type Column } from "../../../../../components/molecules/DataTable";
 import { useTruck, useDeleteTruck } from "../../../../../hooks/useFleet";
+import { useTrips } from "../../../../../hooks/useTrips";
+import type { Trip } from "../../../../../types/trips";
 import { usePermission } from "../../../../../hooks/usePermission";
 import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon } from "../../../../../lib/utils";
 import { cn } from "../../../../../lib/utils";
+import { STATUS_COLORS, STATUS_LABELS } from "../../../../../lib/constants";
 
 export const Route = createFileRoute("/_auth/fleet/trucks/$truckId/")({
   component: TruckDetail,
@@ -28,22 +33,86 @@ function TruckDetail() {
   const { truckId } = Route.useParams();
   const { can } = usePermission();
   const navigate = useNavigate();
+
   const { data: truck, isLoading } = useTruck(truckId);
   const deleteTruck = useDeleteTruck();
   const [showDelete, setShowDelete] = useState(false);
 
+  // Trip history — server-filtered to this truck, paginated
+  const [tripPage, setTripPage] = useState(1);
+  const { data: tripsData, isLoading: tripsLoading } = useTrips({
+    truckId,
+    page:     tripPage,
+    pageSize: 10,
+  });
+  const trips    = tripsData?.data ?? [];
+  const tripMeta = tripsData?.meta;
+
   if (isLoading) return <LoadingSpinner className="mt-24" />;
-  if (!truck) return <p className="p-8 text-muted-foreground">Truck not found.</p>;
+  if (!truck)    return <p className="p-8 text-muted-foreground">Truck not found.</p>;
 
   const handleDelete = async () => {
     await deleteTruck.mutateAsync(truckId);
     navigate({ to: "/fleet/trucks" });
   };
 
+  // ── Trip history columns ──────────────────────────────────────────────────
+  const tripColumns: Column<Trip>[] = [
+    {
+      key: "tripNumber",
+      header: "Trip",
+      cell: (row) => (
+        <Link
+          to="/trips/$tripId"
+          params={{ tripId: row.id }}
+          className="font-mono font-semibold text-primary hover:underline"
+        >
+          {row.tripNumber}
+        </Link>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (row) => (
+        <span className={cn(
+          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+          STATUS_COLORS[row.status] ?? "bg-gray-100 text-gray-600 border-gray-200",
+        )}>
+          {STATUS_LABELS[row.status] ?? row.status}
+        </span>
+      ),
+    },
+    {
+      key: "route",
+      header: "Route",
+      cell: (row) => (
+        <span className="text-sm">
+          {row.origin} → {row.destination}
+        </span>
+      ),
+    },
+    {
+      key: "assignedDriverName",
+      header: "Driver",
+      cell: (row) => row.assignedDriverName ?? "—",
+    },
+    {
+      key: "scheduledDeparture",
+      header: "Departure",
+      cell: (row) => formatDate(row.scheduledDeparture),
+    },
+    {
+      key: "scheduledArrival",
+      header: "Arrival",
+      cell: (row) => formatDate(row.scheduledArrival),
+    },
+  ];
+
   return (
     <div className="space-y-6">
 
-      {/* Nav + actions — wraps on mobile */}
+      {/* Nav + actions */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/fleet/trucks">
@@ -85,39 +154,99 @@ function TruckDetail() {
         </CardContent>
       </Card>
 
-      {/* Detail grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Operational</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {/* ✅ Fixed: was "..." string literal, now backtick template */}
-            <Row icon={Gauge}    label="Odometer"  value={`${formatNumber(truck.odometerKm)} km`} />
-            <Row icon={Droplets} label="Fuel Type" value={toTitleCase(truck.fuelType)} />
-            {truck.vin && <Row icon={Truck} label="VIN" value={truck.vin} mono />}
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="trips">
+            Trip History
+            {tripMeta && tripMeta.totalItems > 0 && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                {tripMeta.totalItems}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Compliance</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <ExpiryRow label="Insurance"  date={truck.insuranceExpiryDate} />
-            <ExpiryRow label="Inspection" date={truck.inspectionExpiryDate} />
-          </CardContent>
-        </Card>
-      </div>
+        {/* ── Overview ────────────────────────────────────────────────────── */}
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Operational</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <Row icon={Gauge}    label="Odometer"  value={`${formatNumber(truck.odometerKm)} km`} />
+                <Row icon={Droplets} label="Fuel Type" value={toTitleCase(truck.fuelType)} />
+                {truck.vin && <Row icon={Truck} label="VIN" value={truck.vin} mono />}
+              </CardContent>
+            </Card>
 
-      {truck.notes && (
-        <Card>
-          <CardHeader><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{truck.notes}</p>
-          </CardContent>
-        </Card>
-      )}
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Compliance</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <ExpiryRow label="Insurance"  date={truck.insuranceExpiryDate} />
+                <ExpiryRow label="Inspection" date={truck.inspectionExpiryDate} />
+              </CardContent>
+            </Card>
+          </div>
 
-      <p className="text-xs text-muted-foreground">
-        Added {formatDate(truck.createdAt)} · Updated {formatDate(truck.updatedAt)}
-      </p>
+          {/* Catalog spec card — only shown if specs were saved */}
+          {(truck.wheelConfig || truck.grossWeightTons || truck.axleLoadTons) && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Catalog Specs</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-3 gap-4 text-sm">
+                {truck.wheelConfig    && <SpecStat label="Wheel config"  value={truck.wheelConfig} />}
+                {truck.grossWeightTons && <SpecStat label="Gross weight" value={`${truck.grossWeightTons} t`} />}
+                {truck.axleLoadTons   && <SpecStat label="Axle load"     value={`${truck.axleLoadTons} t`} />}
+              </CardContent>
+            </Card>
+          )}
+
+          {truck.notes && (
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{truck.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Added {formatDate(truck.createdAt)} · Updated {formatDate(truck.updatedAt)}
+          </p>
+        </TabsContent>
+
+        {/* ── Trip History ─────────────────────────────────────────────────── */}
+        <TabsContent value="trips" className="mt-4 space-y-4">
+          <DataTable
+            columns={tripColumns}
+            data={trips}
+            loading={tripsLoading}
+            emptyTitle="No trips yet"
+            emptyDescription="Trips assigned to this truck will appear here."
+          />
+
+          {tripMeta && tripMeta.totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>{tripMeta.totalItems} trip{tripMeta.totalItems !== 1 ? "s" : ""}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"
+                  disabled={!tripMeta.hasPreviousPage}
+                  onClick={() => setTripPage((p) => p - 1)}>
+                  Previous
+                </Button>
+                <span className="self-center px-2 hidden sm:inline">
+                  Page {tripMeta.page} of {tripMeta.totalPages}
+                </span>
+                <Button variant="outline" size="sm"
+                  disabled={!tripMeta.hasNextPage}
+                  onClick={() => setTripPage((p) => p + 1)}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         open={showDelete}
@@ -131,6 +260,8 @@ function TruckDetail() {
     </div>
   );
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function Row({ icon: Icon, label, value, mono = false }: {
   icon: React.ElementType; label: string; value: string; mono?: boolean;
@@ -153,15 +284,20 @@ function ExpiryRow({ label, date }: { label: string; date?: string }) {
       <div className="flex items-center gap-2 text-muted-foreground">
         <Calendar className="h-4 w-4" />{label}
       </div>
-      <span className={cn(
-        "font-medium",
-        expired && "text-red-600",
-        !expired && soon && "text-amber-600",
-      )}>
+      <span className={cn("font-medium", expired && "text-red-600", !expired && soon && "text-amber-600")}>
         {date ? formatDate(date) : "—"}
         {expired && " (Expired)"}
         {!expired && soon && " (Expiring soon)"}
       </span>
+    </div>
+  );
+}
+
+function SpecStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium text-sm">{value}</p>
     </div>
   );
 }

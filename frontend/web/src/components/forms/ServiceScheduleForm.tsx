@@ -87,7 +87,7 @@ export function ServiceScheduleForm({ initial, onSubmit, isLoading }: ServiceSch
 
   const { data: trucks } = useQuery({
     queryKey: ["trucks-select"],
-    queryFn:  () => apiClient.get<{ id: string; plateNumber: string }[]>("/api/v1/fleet/trucks?limit=200").then(r => r.data),
+    queryFn:  () => apiClient.get<{ data: { id: string; plateNumber: string }[] }>("/api/v1/fleet/trucks?page_size=200").then(r => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
