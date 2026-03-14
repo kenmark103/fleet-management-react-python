@@ -1,0 +1,225 @@
+{
+  "trucks": [
+    {
+      "make": "Mercedes-Benz",
+      "models": [
+        { "model": "Actros 2645", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Actros 2648", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Actros 3344", "wheelConfig": "6x4", "grossWeightTons": 33, "axleLoadTons": 13 },
+        { "model": "Actros 4144", "wheelConfig": "8x4", "grossWeightTons": 41, "axleLoadTons": 13 },
+        { "model": "Axor 2628", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Axor 3340", "wheelConfig": "6x4", "grossWeightTons": 33, "axleLoadTons": 13 },
+        { "model": "Atego 1524", "wheelConfig": "4x2", "grossWeightTons": 15, "axleLoadTons": 9 },
+        { "model": "Atego 1824", "wheelConfig": "4x2", "grossWeightTons": 18, "axleLoadTons": 9 }
+      ]
+    },
+    {
+      "make": "Volvo",
+      "models": [
+        { "model": "FH 460", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FH 500", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FH 540", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FM 370", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FM 420", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FMX 460", "wheelConfig": "8x4", "grossWeightTons": 35, "axleLoadTons": 13 },
+        { "model": "FL 250", "wheelConfig": "4x2", "grossWeightTons": 18, "axleLoadTons": 9 }
+      ]
+    },
+    {
+      "make": "Scania",
+      "models": [
+        { "model": "R 410", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "R 450", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "R 500", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "S 500", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "P 360", "wheelConfig": "6x2", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "G 410", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "G 450", "wheelConfig": "8x4", "grossWeightTons": 32, "axleLoadTons": 13 }
+      ]
+    },
+    {
+      "make": "MAN",
+      "models": [
+        { "model": "TGX 26.440", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "TGX 26.480", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "TGX 33.440", "wheelConfig": "6x4", "grossWeightTons": 33, "axleLoadTons": 13 },
+        { "model": "TGS 26.400", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "TGS 35.400", "wheelConfig": "8x4", "grossWeightTons": 35, "axleLoadTons": 13 },
+        { "model": "TGM 18.250", "wheelConfig": "4x2", "grossWeightTons": 18, "axleLoadTons": 9 },
+        { "model": "TGL 12.220", "wheelConfig": "4x2", "grossWeightTons": 12, "axleLoadTons": 7.5 }
+      ]
+    },
+    {
+      "make": "Isuzu",
+      "models": [
+        { "model": "FVZ 1400", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "FVZ 34360", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "GXZ 360-33", "wheelConfig": "6x4", "grossWeightTons": 33, "axleLoadTons": 13 },
+        { "model": "FVR 900", "wheelConfig": "4x2", "grossWeightTons": 15, "axleLoadTons": 9 },
+        { "model": "FRR 600", "wheelConfig": "4x2", "grossWeightTons": 14, "axleLoadTons": 7.5 },
+        { "model": "NQR 775", "wheelConfig": "4x2", "grossWeightTons": 7.5, "axleLoadTons": 5 },
+        { "model": "NMR 130", "wheelConfig": "4x2", "grossWeightTons": 5, "axleLoadTons": 3.5 }
+      ]
+    },
+    {
+      "make": "Mitsubishi Fuso",
+      "models": [
+        { "model": "Super Great V FV 54", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Super Great FP 54", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Fighter FK 600", "wheelConfig": "4x2", "grossWeightTons": 14, "axleLoadTons": 7.5 },
+        { "model": "Fighter FM 65", "wheelConfig": "4x2", "grossWeightTons": 16, "axleLoadTons": 9 },
+        { "model": "Canter FE 71", "wheelConfig": "4x2", "grossWeightTons": 5, "axleLoadTons": 3.5 },
+        { "model": "Canter FE 84", "wheelConfig": "4x2", "grossWeightTons": 7.5, "axleLoadTons": 5 }
+      ]
+    },
+    {
+      "make": "Hino",
+      "models": [
+        { "model": "700 Series SS 2848", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "700 Series FY 3250", "wheelConfig": "6x4", "grossWeightTons": 32, "axleLoadTons": 13 },
+        { "model": "500 Series GH 1832", "wheelConfig": "4x2", "grossWeightTons": 18, "axleLoadTons": 9 },
+        { "model": "500 Series FL 1628", "wheelConfig": "4x2", "grossWeightTons": 16, "axleLoadTons": 9 },
+        { "model": "300 Series XKU 600", "wheelConfig": "4x2", "grossWeightTons": 7.5, "axleLoadTons": 5 }
+      ]
+    },
+    {
+      "make": "UD Trucks",
+      "models": [
+        { "model": "Quon GW 26.420", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Quon GW 33.420", "wheelConfig": "6x4", "grossWeightTons": 33, "axleLoadTons": 13 },
+        { "model": "Condor MK 11.280", "wheelConfig": "4x2", "grossWeightTons": 11, "axleLoadTons": 7.5 },
+        { "model": "Condor PK 17.280", "wheelConfig": "4x2", "grossWeightTons": 17, "axleLoadTons": 9 }
+      ]
+    },
+    {
+      "make": "DAF",
+      "models": [
+        { "model": "XF 480 FT", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "XF 530 FT", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "CF 370 FA", "wheelConfig": "4x2", "grossWeightTons": 18, "axleLoadTons": 9 },
+        { "model": "CF 450 FA", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "LF 230 FA", "wheelConfig": "4x2", "grossWeightTons": 12, "axleLoadTons": 7.5 }
+      ]
+    },
+    {
+      "make": "Iveco",
+      "models": [
+        { "model": "Stralis 460 AS", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Stralis 480 HI-WAY", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "Trakker 450 AT", "wheelConfig": "8x4", "grossWeightTons": 35, "axleLoadTons": 13 },
+        { "model": "Eurocargo 160E28", "wheelConfig": "4x2", "grossWeightTons": 16, "axleLoadTons": 9 }
+      ]
+    },
+    {
+      "make": "SINOTRUK",
+      "models": [
+        { "model": "HOWO A7 6x4", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "HOWO T7H 6x4", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "HOWO 8x4 Tipper", "wheelConfig": "8x4", "grossWeightTons": 35, "axleLoadTons": 13 },
+        { "model": "SITRAK G7H 6x4", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 }
+      ]
+    },
+    {
+      "make": "Dongfeng",
+      "models": [
+        { "model": "DFL4251A 6x4", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "KC 6x4 Tractor", "wheelConfig": "6x4", "grossWeightTons": 26, "axleLoadTons": 11.5 },
+        { "model": "EQ1250 4x2", "wheelConfig": "4x2", "grossWeightTons": 12, "axleLoadTons": 7.5 }
+      ]
+    }
+  ],
+  "trailers": [
+    {
+      "make": "Schmitz Cargobull",
+      "models": [
+        { "model": "S.CS Curtainsider", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "S.KO Tipper", "type": "other", "capacityTons": 24, "axles": 3 },
+        { "model": "S.CF Reefer", "type": "refrigerated", "capacityTons": 22, "axles": 3 },
+        { "model": "S.CU Box", "type": "box", "capacityTons": 24, "axles": 3 },
+        { "model": "S.TS Tanker", "type": "tanker", "capacityTons": 20, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Kogel",
+      "models": [
+        { "model": "CARGO Curtainsider", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "SNCO 24 Flatbed", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "MAXX Box", "type": "box", "capacityTons": 24, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Krone",
+      "models": [
+        { "model": "SD Curtainsider", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "Cool Liner Reefer", "type": "refrigerated", "capacityTons": 22, "axles": 3 },
+        { "model": "Box Liner", "type": "box", "capacityTons": 24, "axles": 3 },
+        { "model": "Dry Liner", "type": "box", "capacityTons": 24, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Wielton",
+      "models": [
+        { "model": "NS-3 Flatbed", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "NW-3 Curtainsider", "type": "flatbed", "capacityTons": 24, "axles": 3 },
+        { "model": "NC-3 Box", "type": "box", "capacityTons": 24, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Fruehauf",
+      "models": [
+        { "model": "Flatbed 40ft", "type": "flatbed", "capacityTons": 30, "axles": 3 },
+        { "model": "Flatbed 45ft", "type": "flatbed", "capacityTons": 30, "axles": 3 },
+        { "model": "Box 40ft", "type": "box", "capacityTons": 28, "axles": 3 },
+        { "model": "Tanker 30000L", "type": "tanker", "capacityTons": 25, "axles": 3 },
+        { "model": "Tanker 40000L", "type": "tanker", "capacityTons": 32, "axles": 3 },
+        { "model": "Reefer 40ft", "type": "refrigerated", "capacityTons": 22, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Afrit",
+      "models": [
+        { "model": "Flatdeck 45ft", "type": "flatbed", "capacityTons": 34, "axles": 3 },
+        { "model": "Superlink Flatdeck", "type": "flatbed", "capacityTons": 40, "axles": 4 },
+        { "model": "Side Tipper", "type": "other", "capacityTons": 30, "axles": 3 },
+        { "model": "Bulk Tanker 40000L", "type": "tanker", "capacityTons": 32, "axles": 3 },
+        { "model": "Reefer 40ft", "type": "refrigerated", "capacityTons": 22, "axles": 3 },
+        { "model": "Curtainsider 45ft", "type": "flatbed", "capacityTons": 30, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Henred Fruehauf",
+      "models": [
+        { "model": "Flat Deck 40ft", "type": "flatbed", "capacityTons": 30, "axles": 3 },
+        { "model": "Tanker 40000L", "type": "tanker", "capacityTons": 32, "axles": 3 },
+        { "model": "Skeletal 40ft", "type": "other", "capacityTons": 30, "axles": 3 },
+        { "model": "Tipper 30m3", "type": "other", "capacityTons": 28, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Trailord",
+      "models": [
+        { "model": "Flatbed 40ft", "type": "flatbed", "capacityTons": 28, "axles": 3 },
+        { "model": "Box Body 40ft", "type": "box", "capacityTons": 24, "axles": 3 },
+        { "model": "Tanker 30000L", "type": "tanker", "capacityTons": 24, "axles": 3 }
+      ]
+    },
+    {
+      "make": "CIMC",
+      "models": [
+        { "model": "Skeletal Container 40ft", "type": "other", "capacityTons": 30, "axles": 3 },
+        { "model": "Flatbed 40ft", "type": "flatbed", "capacityTons": 30, "axles": 3 },
+        { "model": "Curtainsider 40ft", "type": "flatbed", "capacityTons": 28, "axles": 3 },
+        { "model": "Tanker 35000L", "type": "tanker", "capacityTons": 28, "axles": 3 },
+        { "model": "Reefer 40ft", "type": "refrigerated", "capacityTons": 22, "axles": 3 }
+      ]
+    },
+    {
+      "make": "Crossland",
+      "models": [
+        { "model": "Flatdeck 40ft", "type": "flatbed", "capacityTons": 30, "axles": 3 },
+        { "model": "Side Tipper 28m3", "type": "other", "capacityTons": 25, "axles": 3 },
+        { "model": "Bulk Tanker 38000L", "type": "tanker", "capacityTons": 30, "axles": 3 }
+      ]
+    }
+  ]
+}
