@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 import uvicorn
 from alembic import command
 from alembic.config import Config
@@ -63,6 +64,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure static upload directories exist on every environment (local, Docker, Render).
+for _dir in ("static", "static/avatars", "static/trucks", "static/trailers"):
+    os.makedirs(_dir, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

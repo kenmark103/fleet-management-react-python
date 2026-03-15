@@ -72,9 +72,18 @@ function TrailerDetail() {
         <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                <Container className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-              </div>
+              {/* Show vehicle photo if available, else fall back to icon */}
+              {trailer.imageUrl ? (
+                <img
+                  src={trailer.imageUrl}
+                  alt={trailer.plateNumber}
+                  className="h-16 w-24 rounded-xl object-cover ring-2 ring-muted shrink-0"
+                />
+              ) : (
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                  <Container className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                </div>
+              )}
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold font-mono">{trailer.plateNumber}</h1>
                 <p className="text-muted-foreground text-sm">{trailer.year} {trailer.make} {trailer.model}</p>

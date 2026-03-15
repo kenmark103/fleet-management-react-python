@@ -17,7 +17,7 @@ import {
   CheckCheck, ExternalLink,
 } from "lucide-react";
 import { APP_NAME } from "../../lib/constants";
-import { getInitials, formatDate } from "../../lib/utils";
+import { getInitials, formatDate, getStaticUrl } from "../../lib/utils";
 import { cn } from "../../lib/utils";
 import { RoleBadge } from "../atoms/RoleBadge";
 import { Button } from "../ui/button";
@@ -28,9 +28,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   useUnreadCount, useNotifications, useMarkRead, useMarkAllRead,
-  notificationKeys, type Notification, type NotificationType,
+  type Notification, type NotificationType,
 } from "../../hooks/useNotifications";
-import { useQueryClient } from "@tanstack/react-query";
 import type { User as UserType } from "../../types/auth";
 
 interface TopbarProps {
@@ -60,7 +59,6 @@ const NOTIF_META: Record<NotificationType, { icon: React.ElementType; color: str
 
 function NotificationBell() {
   const navigate   = useNavigate();
-  const qc         = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const { data: unreadCount = 0 } = useUnreadCount();
@@ -71,15 +69,6 @@ function NotificationBell() {
   const notifications = data?.data ?? [];
   const hasUnread     = unreadCount > 0;
 
-  // When the panel opens, immediately invalidate so it fetches fresh data
-  // rather than serving whatever is left in the 15s stale window.
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
-      qc.invalidateQueries({ queryKey: notificationKeys.all })
-    }
-    setOpen(next)
-  }
-
   const handleClick = (n: Notification) => {
     if (!n.isRead) markRead.mutate(n.id);
     if (n.actionUrl) {
@@ -89,7 +78,7 @@ function NotificationBell() {
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-9 w-9">
           <Bell className={cn("h-5 w-5", hasUnread && "text-foreground")} />
@@ -247,7 +236,7 @@ export function Topbar({ user, onLogout, onMenuToggle }: TopbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex h-9 items-center gap-2 px-2 hover:bg-muted">
               <Avatar className="h-7 w-7">
-                <AvatarImage src={user.avatarUrl ?? undefined} alt={displayName} />
+                <AvatarImage src={getStaticUrl(user.avatarUrl) ?? undefined} alt={displayName} />
                 <AvatarFallback className="text-xs font-semibold">
                   {getInitials(displayName)}
                 </AvatarFallback>

@@ -1,12 +1,6 @@
 /**
  * hooks/useFleet.ts
  * Fleet Management System
- *
- * Changes:
- *   - useTrucks / useTrailers now accept a params object
- *     (page, pageSize, search, status) and return PaginatedResponse<T>
- *   - Query keys updated to include pagination params for correct cache isolation
- *   - keepPreviousData added so the UI doesn't flash empty on page change
  */
 
 import {
@@ -17,22 +11,23 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as api from "../lib/fleet-api";
+import apiClient from "../lib/api";
 import type { TruckStatus, TrailerStatus } from "../types/fleet";
 import type { TruckPayload, TrailerPayload } from "../lib/fleet-api";
 
 // ── Query keys ─────────────────────────────────────────────────────────────────
 
 export const fleetKeys = {
-  summary:      ["fleet-summary"]                                          as const,
-  trucks:       ["trucks"]                                                 as const,
-  trucksList:   (params: object) => ["trucks", "list", params]            as const,
-  truck:        (id: string)     => ["trucks", id]                        as const,
-  trailers:     ["trailers"]                                               as const,
-  trailersList: (params: object) => ["trailers", "list", params]          as const,
-  trailer:      (id: string)     => ["trailers", id]                      as const,
+  summary:      ["fleet-summary"]                                as const,
+  trucks:       ["trucks"]                                       as const,
+  trucksList:   (params: object) => ["trucks", "list", params]  as const,
+  truck:        (id: string)     => ["trucks", id]              as const,
+  trailers:     ["trailers"]                                     as const,
+  trailersList: (params: object) => ["trailers", "list", params] as const,
+  trailer:      (id: string)     => ["trailers", id]            as const,
 };
 
-// ── Shared params type ─────────────────────────────────────────────────────────
+// ── Shared params types ────────────────────────────────────────────────────────
 
 export interface TruckListParams {
   page?:     number
@@ -175,4 +170,46 @@ export function useDeleteTrailer() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+}
+
+// ── Truck image upload ─────────────────────────────────────────────────────────
+
+export function useUploadTruckImage(truckId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return apiClient
+        .post(`/api/v1/fleet/trucks/${truckId}/image`, fd, {
+          headers: { 'Content-Type': undefined },
+        })
+        .then(r => r.data)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: fleetKeys.truck(truckId) })
+      qc.invalidateQueries({ queryKey: fleetKeys.trucks })
+    },
+  })
+}
+
+// ── Trailer image upload ───────────────────────────────────────────────────────
+
+export function useUploadTrailerImage(trailerId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return apiClient
+        .post(`/api/v1/fleet/trailers/${trailerId}/image`, fd, {
+          headers: { 'Content-Type': undefined },
+        })
+        .then(r => r.data)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: fleetKeys.trailer(trailerId) })
+      qc.invalidateQueries({ queryKey: fleetKeys.trailers })
+    },
+  })
 }

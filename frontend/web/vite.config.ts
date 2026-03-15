@@ -24,6 +24,7 @@ const config = defineConfig({
         "/api":  { target: API, changeOrigin: true },
         "/auth":    { target: API, changeOrigin: true },
         "/health":  { target: API, changeOrigin: true },
+        "/static": { target: API, changeOrigin: true },
         "/ws":      { target: API, changeOrigin: true, ws: true }
       },
   },

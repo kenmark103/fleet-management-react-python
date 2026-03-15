@@ -235,3 +235,10 @@ export function getInitials(name: string | null | undefined): string {
     .map((p) => p[0].toUpperCase())
     .join("");
 }
+
+export function getStaticUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const base = import.meta.env.VITE_API_URL ?? "";
+  // Avoid double-slashing if base already has no trailing slash
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}

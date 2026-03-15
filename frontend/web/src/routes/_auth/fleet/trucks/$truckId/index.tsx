@@ -2,9 +2,8 @@
  * routes/_auth/fleet/trucks/$truckId/index.tsx
  * Route: /fleet/trucks/:truckId
  *
- * Changes (Stage 3):
- *   - Layout converted to tabs: "Overview" (existing content) + "Trip History"
- *   - Trip History tab uses useTrips({ truckId }) — server-filtered, paginated
+ * Changes (Stage 4):
+ *   - Hero card shows vehicle photo (imageUrl) when available
  */
 
 import { useState } from "react";
@@ -38,7 +37,6 @@ function TruckDetail() {
   const deleteTruck = useDeleteTruck();
   const [showDelete, setShowDelete] = useState(false);
 
-  // Trip history — server-filtered to this truck, paginated
   const [tripPage, setTripPage] = useState(1);
   const { data: tripsData, isLoading: tripsLoading } = useTrips({
     truckId,
@@ -56,17 +54,13 @@ function TruckDetail() {
     navigate({ to: "/fleet/trucks" });
   };
 
-  // ── Trip history columns ──────────────────────────────────────────────────
   const tripColumns: Column<Trip>[] = [
     {
       key: "tripNumber",
       header: "Trip",
       cell: (row) => (
-        <Link
-          to="/trips/$tripId"
-          params={{ tripId: row.id }}
-          className="font-mono font-semibold text-primary hover:underline"
-        >
+        <Link to="/trips/$tripId" params={{ tripId: row.id }}
+          className="font-mono font-semibold text-primary hover:underline">
           {row.tripNumber}
         </Link>
       ),
@@ -86,11 +80,7 @@ function TruckDetail() {
     {
       key: "route",
       header: "Route",
-      cell: (row) => (
-        <span className="text-sm">
-          {row.origin} → {row.destination}
-        </span>
-      ),
+      cell: (row) => <span className="text-sm">{row.origin} → {row.destination}</span>,
     },
     {
       key: "assignedDriverName",
@@ -111,13 +101,9 @@ function TruckDetail() {
 
   return (
     <div className="space-y-6">
-
-      {/* Nav + actions */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/fleet/trucks">
-            <ArrowLeft className="mr-2 h-4 w-4" />Back to Trucks
-          </Link>
+          <Link to="/fleet/trucks"><ArrowLeft className="mr-2 h-4 w-4" />Back to Trucks</Link>
         </Button>
         <div className="flex gap-2">
           {can("trucks:edit") && (
@@ -135,14 +121,22 @@ function TruckDetail() {
         </div>
       </div>
 
-      {/* Hero card */}
+      {/* Hero card — shows vehicle photo when available */}
       <Card>
         <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                <Truck className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-              </div>
+              {truck.imageUrl ? (
+                <img
+                  src={truck.imageUrl}
+                  alt={truck.plateNumber}
+                  className="h-16 w-24 rounded-xl object-cover ring-2 ring-muted shrink-0"
+                />
+              ) : (
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                  <Truck className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                </div>
+              )}
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold font-mono">{truck.plateNumber}</h1>
                 <p className="text-muted-foreground text-sm">{truck.year} {truck.make} {truck.model}</p>
@@ -154,7 +148,6 @@ function TruckDetail() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -168,7 +161,6 @@ function TruckDetail() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Overview ────────────────────────────────────────────────────── */}
         <TabsContent value="overview" className="mt-4 space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -179,7 +171,6 @@ function TruckDetail() {
                 {truck.vin && <Row icon={Truck} label="VIN" value={truck.vin} mono />}
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader><CardTitle className="text-sm">Compliance</CardTitle></CardHeader>
               <CardContent className="space-y-3">
@@ -189,14 +180,13 @@ function TruckDetail() {
             </Card>
           </div>
 
-          {/* Catalog spec card — only shown if specs were saved */}
           {(truck.wheelConfig || truck.grossWeightTons || truck.axleLoadTons) && (
             <Card>
               <CardHeader><CardTitle className="text-sm">Catalog Specs</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-3 gap-4 text-sm">
-                {truck.wheelConfig    && <SpecStat label="Wheel config"  value={truck.wheelConfig} />}
-                {truck.grossWeightTons && <SpecStat label="Gross weight" value={`${truck.grossWeightTons} t`} />}
-                {truck.axleLoadTons   && <SpecStat label="Axle load"     value={`${truck.axleLoadTons} t`} />}
+                {truck.wheelConfig     && <SpecStat label="Wheel config"  value={truck.wheelConfig} />}
+                {truck.grossWeightTons && <SpecStat label="Gross weight"  value={`${truck.grossWeightTons} t`} />}
+                {truck.axleLoadTons    && <SpecStat label="Axle load"     value={`${truck.axleLoadTons} t`} />}
               </CardContent>
             </Card>
           )}
@@ -215,7 +205,6 @@ function TruckDetail() {
           </p>
         </TabsContent>
 
-        {/* ── Trip History ─────────────────────────────────────────────────── */}
         <TabsContent value="trips" className="mt-4 space-y-4">
           <DataTable
             columns={tripColumns}
@@ -224,24 +213,17 @@ function TruckDetail() {
             emptyTitle="No trips yet"
             emptyDescription="Trips assigned to this truck will appear here."
           />
-
           {tripMeta && tripMeta.totalPages > 1 && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>{tripMeta.totalItems} trip{tripMeta.totalItems !== 1 ? "s" : ""}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm"
-                  disabled={!tripMeta.hasPreviousPage}
-                  onClick={() => setTripPage((p) => p - 1)}>
-                  Previous
-                </Button>
+                <Button variant="outline" size="sm" disabled={!tripMeta.hasPreviousPage}
+                  onClick={() => setTripPage((p) => p - 1)}>Previous</Button>
                 <span className="self-center px-2 hidden sm:inline">
                   Page {tripMeta.page} of {tripMeta.totalPages}
                 </span>
-                <Button variant="outline" size="sm"
-                  disabled={!tripMeta.hasNextPage}
-                  onClick={() => setTripPage((p) => p + 1)}>
-                  Next
-                </Button>
+                <Button variant="outline" size="sm" disabled={!tripMeta.hasNextPage}
+                  onClick={() => setTripPage((p) => p + 1)}>Next</Button>
               </div>
             </div>
           )}
@@ -249,28 +231,21 @@ function TruckDetail() {
       </Tabs>
 
       <ConfirmDialog
-        open={showDelete}
-        onOpenChange={setShowDelete}
+        open={showDelete} onOpenChange={setShowDelete}
         title="Delete this truck?"
-        description="This cannot be undone. All associated records (fuel logs, service history) will remain but the truck will be removed."
-        onConfirm={handleDelete}
-        isLoading={deleteTruck.isPending}
-        destructive
+        description="This cannot be undone. All associated records will remain but the truck will be removed."
+        onConfirm={handleDelete} isLoading={deleteTruck.isPending} destructive
       />
     </div>
   );
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
 
 function Row({ icon: Icon, label, value, mono = false }: {
   icon: React.ElementType; label: string; value: string; mono?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-4 w-4" />{label}
-      </div>
+      <div className="flex items-center gap-2 text-muted-foreground"><Icon className="h-4 w-4" />{label}</div>
       <span className={cn("font-medium", mono && "font-mono text-xs")}>{value}</span>
     </div>
   );
@@ -281,9 +256,7 @@ function ExpiryRow({ label, date }: { label: string; date?: string }) {
   const soon    = isExpiringSoon(date, 30);
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Calendar className="h-4 w-4" />{label}
-      </div>
+      <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" />{label}</div>
       <span className={cn("font-medium", expired && "text-red-600", !expired && soon && "text-amber-600")}>
         {date ? formatDate(date) : "—"}
         {expired && " (Expired)"}

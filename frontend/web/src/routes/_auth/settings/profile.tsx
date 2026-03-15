@@ -24,7 +24,7 @@ import type {
   ProfileUpdatePayload,
   User as UserType,
 } from "../../../types/user";
-import { getInitials }  from "../../../lib/utils";
+import { getInitials, getStaticUrl }  from "../../../lib/utils";
 import { useAuth }      from "../../../lib/auth-context";
 import { Button }    from "../../../components/ui/button";
 import { Input }     from "../../../components/ui/input";
@@ -110,7 +110,7 @@ function AvatarSection({
   onUpdated: (p: UserType) => void;
 }) {
   const inputRef    = useRef<HTMLInputElement>(null);
-  const [preview,   setPreview]   = useState<string | null>(profile.avatarUrl);
+  const [preview,   setPreview]   = useState<string | null>(getStaticUrl(profile.avatarUrl));
   const [isDragging, setIsDragging] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
 
@@ -129,7 +129,7 @@ function AvatarSection({
     },
     onSuccess: (updated) => {
       onUpdated(updated);
-      setPreview(updated.avatarUrl);
+      setPreview(getStaticUrl(updated.avatarUrl));
       toast.success("Profile photo updated");
       setError(null);
     },
@@ -142,7 +142,7 @@ function AvatarSection({
         ? detail.map((d: any) => d.msg ?? String(d)).join(", ")
         : (typeof detail === "string" ? detail : e.message ?? "Upload failed");
       setError(msg);
-      setPreview(profile.avatarUrl); // revert optimistic preview
+      setPreview(getStaticUrl(profile.avatarUrl)); // revert optimistic preview
     },
   });
 

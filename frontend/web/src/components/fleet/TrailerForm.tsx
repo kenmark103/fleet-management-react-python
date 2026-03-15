@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Info } from "lucide-react";
+import { Info, Camera, Loader2 } from "lucide-react";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "../ui/form";
@@ -59,11 +59,13 @@ interface TrailerFormProps {
   onSubmit: (values: TrailerPayload) => void;
   isLoading?: boolean;
   onCancel: () => void;
+  onImageUploaded?: (imageUrl: string) => void;
+  trailerId?: string;
 }
 
 const CATALOG_MAKES = getTrailerMakeNames();
 
-export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel }: TrailerFormProps) {
+export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel, onImageUploaded, trailerId }: TrailerFormProps) {
   const defaultMake  = defaultValues?.make  ?? "";
   const defaultModel = defaultValues?.model ?? "";
 
@@ -76,6 +78,47 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel }: Tr
   const [catalogSpec, setCatalogSpec] = useState<CatalogTrailerModel | null>(
     () => getTrailerModelSpec(defaultMake, defaultModel) ?? null,
   );
+
+  // Image upload state
+  const imgInputRef    = useRef<HTMLInputElement>(null);
+  const [imgPreview,   setImgPreview]   = useState<string | null>(defaultValues?.imageUrl ?? null);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgError,     setImgError]     = useState<string | null>(null);
+
+  async function handleImageFile(file: File) {
+    if (!trailerId) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setImgError("Only JPEG, PNG, or WebP images are allowed."); return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImgError("File must be under 5 MB."); return;
+    }
+    setImgError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => setImgPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+    setImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/v1/fleet/trailers/${trailerId}/image`, {
+        method: "POST", body: fd, credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Upload failed");
+      }
+      const data = await res.json();
+      const url: string = data.imageUrl ?? data.image_url ?? "";
+      setImgPreview(url);
+      onImageUploaded?.(url);
+    } catch (e: any) {
+      setImgError(e.message ?? "Upload failed");
+      setImgPreview(defaultValues?.imageUrl ?? null);
+    } finally {
+      setImgUploading(false);
+    }
+  }
 
   const form = useForm<TrailerFormValues>({
     resolver: zodResolver(trailerSchema),
@@ -153,6 +196,39 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel }: Tr
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+
+        {/* ── Vehicle Image (edit mode only) ───────────────────────────────── */}
+        {trailerId && (
+          <>
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vehicle Photo</h3>
+              <div className="flex items-center gap-5">
+                <div className="relative cursor-pointer shrink-0" onClick={() => imgInputRef.current?.click()}>
+                  {imgPreview ? (
+                    <img src={imgPreview} alt="Trailer" className="h-24 w-36 rounded-lg object-cover ring-2 ring-muted" />
+                  ) : (
+                    <div className="flex h-24 w-36 items-center justify-center rounded-lg bg-muted ring-2 ring-muted/50">
+                      <Camera className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-foreground ring-1 ring-background shadow">
+                    {imgUploading
+                      ? <Loader2 className="h-3 w-3 animate-spin text-background" />
+                      : <Camera className="h-3 w-3 text-background" />}
+                  </div>
+                  <Input ref={imgInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ""; }} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Trailer Photo</p>
+                  <p className="text-xs text-muted-foreground">Click to upload · JPEG, PNG, WebP · max 5 MB</p>
+                  {imgError && <p className="text-xs text-destructive">{imgError}</p>}
+                </div>
+              </div>
+            </section>
+            <Separator />
+          </>
+        )}
 
         <section className="space-y-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identity</h3>
