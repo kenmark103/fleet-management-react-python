@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { StatusBadge } from "../../../components/atoms/StatusBadge";
 import { ConfirmDialog } from "../../../components/atoms/ConfirmDialog";
 import { PageHeader } from "../../../components/molecules/PageHeader";
-import { formatDate, formatCurrency } from "../../../lib/utils";
+import { useAppSettings } from "../../../lib/settings-context";
 import { WORK_ORDER_STATUSES } from "../../../lib/constants";
 import { usePermission } from "../../../hooks/usePermission";
 import {
@@ -51,6 +51,7 @@ function DueChip({ days }: { days?: number }) {
 
 function MaintenancePage() {
   const { can } = usePermission();
+  const {formatCurrency, formatAppDate} = useAppSettings();
 
   const [woParams,       setWoParams]       = useState<WorkOrderParams>({ page: 1, pageSize: 20 });
   const [scheduleParams, setScheduleParams] = useState<ScheduleParams>({ page: 1, pageSize: 20 });
@@ -161,8 +162,8 @@ function MaintenancePage() {
                     <TableCell className="text-sm">{wo.mechanicName ?? "—"}</TableCell>
                     <TableCell><Badge variant="outline" className={PRIORITY_COLORS[wo.priority]}>{wo.priority}</Badge></TableCell>
                     <TableCell><StatusBadge status={wo.status} /></TableCell>
-                    <TableCell className="text-sm">{formatDate(wo.scheduledDate)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{wo.estimatedCost ? formatCurrency(wo.estimatedCost, wo.currency) : "—"}</TableCell>
+                    <TableCell className="text-sm">{formatAppDate(wo.scheduledDate)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{wo.estimatedCost ? formatCurrency(wo.estimatedCost) : "—"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Link to="/maintenance/work-orders/$workOrderId" params={{ workOrderId: wo.id }}>
@@ -250,8 +251,8 @@ function MaintenancePage() {
                     <TableCell>{s.truckPlate ? <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{s.truckPlate}</span> : "—"}</TableCell>
                     <TableCell className="font-medium text-sm">{s.serviceType}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">Every {s.intervalValue} {s.intervalType}</TableCell>
-                    <TableCell className="text-sm">{s.lastServiceDate ? formatDate(s.lastServiceDate) : "—"}</TableCell>
-                    <TableCell className="text-sm">{s.nextServiceDate ? formatDate(s.nextServiceDate) : "—"}</TableCell>
+                    <TableCell className="text-sm">{s.lastServiceDate ? formatAppDate(s.lastServiceDate) : "—"}</TableCell>
+                    <TableCell className="text-sm">{s.nextServiceDate ? formatAppDate(s.nextServiceDate) : "—"}</TableCell>
                     <TableCell><DueChip days={s.daysUntilDue} /></TableCell>
                     <TableCell>
                       <Badge variant="outline" className={s.isActive ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-500 border-gray-200"}>

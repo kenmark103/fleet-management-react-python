@@ -94,6 +94,20 @@ async def _get_schedule(schedule_id: str, db: DB) -> ServiceSchedule:
     return s
 
 
+async def _load_parts(wo_id: str, db: DB) -> list[WorkOrderPart]:
+    """
+    Explicitly fetches parts for a work order.
+    Required because async SQLAlchemy won't lazy-load relationships
+    from wo.__dict__ — they must be queried directly.
+    """
+    result = await db.execute(
+        select(WorkOrderPart)
+        .where(WorkOrderPart.work_order_id == wo_id)
+        .order_by(WorkOrderPart.id)
+    )
+    return list(result.scalars().all())
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # WORK ORDERS — LIST
 # ─────────────────────────────────────────────────────────────────────────────
@@ -195,9 +209,10 @@ async def create_work_order(
 )
 async def get_work_order(wo_id: str, db: DB):
     wo       = await _get_wo(wo_id, db)
+    parts    = await _load_parts(wo_id, db)   # ← explicit fetch; async SA won't lazy-load from __dict__
     resolved = await resolve_work_order(wo, db)
     return ApiResponse[WorkOrderResponse](
-        data=WorkOrderResponse.model_validate({**wo.__dict__, **resolved})
+        data=WorkOrderResponse.model_validate({**wo.__dict__, "parts": parts, **resolved})
     )
 
 
@@ -257,9 +272,10 @@ async def update_work_order_status(
     await db.commit()
     await db.refresh(wo)
 
+    parts    = await _load_parts(wo_id, db)   # ← same fix: parts must be queried explicitly
     resolved = await resolve_work_order(wo, db)
     return ApiResponse[WorkOrderResponse](
-        data=WorkOrderResponse.model_validate({**wo.__dict__, **resolved}),
+        data=WorkOrderResponse.model_validate({**wo.__dict__, "parts": parts, **resolved}),
         message=f"Status updated to '{payload.status.value}'.",
     )
 

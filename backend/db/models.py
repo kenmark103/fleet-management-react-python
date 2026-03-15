@@ -43,12 +43,12 @@ UserRoleEnum = SAEnum(
 )
 
 TruckStatusEnum = SAEnum(
-    "active", "inactive", "in-progress",
+    "active", "inactive", "in-progress", "under-maintenance",
     name="truckstatus"
 )
 
 TrailerStatusEnum = SAEnum(
-    "active", "inactive",
+    "active", "inactive", "under-maintenance",
     name="trailerstatus"
 )
 
@@ -63,7 +63,7 @@ FuelTypeEnum = SAEnum(
 )
 
 DriverStatusEnum = SAEnum(
-    "active", "inactive",
+    "active", "inactive", "on-leave", "suspended",
     name="driverstatus"
 )
 
@@ -190,6 +190,8 @@ class Truck(Base):
     wheel_config:           Mapped[Optional[str]]   = mapped_column(String(20), nullable=True)
     gross_weight_tons:      Mapped[Optional[float]] = mapped_column(Float,      nullable=True)
     axle_load_tons:         Mapped[Optional[float]] = mapped_column(Float,      nullable=True)
+    # ── Stage 4: vehicle image ──────────────────────────────────────────────
+    image_url:              Mapped[Optional[str]]   = mapped_column(String(500), nullable=True)
     # ───────────────────────────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
@@ -261,6 +263,8 @@ class Trailer(Base):
     notes:                  Mapped[Optional[str]]      = mapped_column(Text,        nullable=True)
     # ── Stage 2: catalog spec column ───────────────────────────────────────
     axles:                  Mapped[Optional[int]]      = mapped_column(Integer, nullable=True)
+    # ── Stage 4: vehicle image ──────────────────────────────────────────────
+    image_url:              Mapped[Optional[str]]      = mapped_column(String(500), nullable=True)
     # ───────────────────────────────────────────────────────────────────────
     created_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TZ, server_default=func.now(), onupdate=func.now())

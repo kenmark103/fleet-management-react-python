@@ -41,7 +41,7 @@ const trailerSchema = z.object({
   make:                 z.string().min(1, "Make is required"),
   model:                z.string().min(1, "Model is required"),
   year:                 z.coerce.number().int().min(1980).max(new Date().getFullYear() + 1),
-  status:               z.enum(["active", "inactive"] as const),
+  status:               z.enum(["active", "inactive", "under-maintenance"] as const),
   type:                 z.enum(["flatbed", "refrigerated", "tanker", "box", "other"] as const),
   capacityTons:         z
     .union([z.coerce.number().min(0), z.literal("")])
@@ -242,6 +242,7 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel }: Tr
             <SF name="status" label="Status" form={form} options={[
               { value: "active",   label: "Active" },
               { value: "inactive", label: "Inactive" },
+              { value: "under-maintenance", label: "Under Maintenance" },
             ]} />
             <SF name="type" label="Trailer Type" form={form} options={[
               { value: "flatbed",      label: "Flatbed" },

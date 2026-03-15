@@ -82,7 +82,7 @@ function makeCurrencyFormatter(currency: Currency) {
 function makeDistFormatter(unit: DistanceUnit) {
   return (km: number | null | undefined): string => {
     if (km == null || isNaN(km)) return "—";
-    const value = unit === "mi" ? km * 0.621371 : km;
+    const value = unit === "miles" ? km * 0.621371 : km;
     const rounded = Math.round(value).toLocaleString("en-US");
     return `${rounded} ${unit}`;
   };
@@ -123,12 +123,16 @@ function applyTheme(theme: SystemSettings["theme"]) {
   const root = document.documentElement;
   root.classList.remove("light", "dark");
 
-  if (theme === "system") {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    root.classList.add(prefersDark ? "dark" : "light");
-  } else {
-    root.classList.add(theme);
-  }
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const resolved = isDark ? "dark" : "light";
+
+  root.classList.add(resolved);
+  // Also set data-theme so :root[data-theme="dark"] custom vars (bg gradients,
+  // sea-ink, lagoon, etc.) switch alongside the shadcn .dark class variables.
+  root.setAttribute("data-theme", resolved);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

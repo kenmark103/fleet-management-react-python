@@ -95,6 +95,7 @@ function KpiGrid() {
       icon:    Truck,
       color:   "blue" as const,
       loading: fleet.isLoading,
+      href:    "/fleet/trucks",
     },
     {
       show:    can("trips:view-all") || can("trips:view-own"),
@@ -104,6 +105,7 @@ function KpiGrid() {
       icon:    MapPin,
       color:   "green" as const,
       loading: activeTripsCount.isLoading,
+      href:    "/trips",
     },
     {
       show:    can("drivers:view-list"),
@@ -113,6 +115,7 @@ function KpiGrid() {
       icon:    Users,
       color:   "default" as const,
       loading: drivers.isLoading,
+      href:    "/drivers",
     },
     {
       show:    can("maintenance:view-all"),
@@ -122,6 +125,7 @@ function KpiGrid() {
       icon:    Wrench,
       color:   "amber" as const,
       loading: pendingWoCount.isLoading,
+      href:    "/maintenance",
     },
     {
       show:    can("dashboard:view-cost-summary"),
@@ -133,6 +137,7 @@ function KpiGrid() {
       icon:    DollarSign,
       color:   "purple" as const,
       loading: fuelKpi.isLoading,
+      href:    "/fuel",
     },
     {
       show:    can("dashboard:view-kpi"),
@@ -142,6 +147,7 @@ function KpiGrid() {
       icon:    Container,
       color:   "default" as const,
       loading: fleet.isLoading,
+      href:    "/fleet/trailers",
     },
   ].filter(c => c.show);
 
@@ -153,24 +159,26 @@ function KpiGrid() {
         const c    = COLOR_MAP[card.color];
         const Icon = card.icon;
         return (
-          <Card key={card.title} className={`border ${c.border} overflow-hidden`}>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-muted-foreground truncate">{card.title}</p>
-                  <p className={`mt-1.5 text-2xl font-bold tabular-nums ${card.loading ? "animate-pulse text-muted" : "text-foreground"}`}>
-                    {card.value}
-                  </p>
-                  {card.sub && (
-                    <p className="mt-0.5 text-xs text-muted-foreground truncate">{card.sub}</p>
-                  )}
+          <Link key={card.title} to={card.href}>
+            <Card className={`border ${c.border} overflow-hidden transition-shadow hover:shadow-md`}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground truncate">{card.title}</p>
+                    <p className={`mt-1.5 text-2xl font-bold tabular-nums ${card.loading ? "animate-pulse text-muted" : "text-foreground"}`}>
+                      {card.value}
+                    </p>
+                    {card.sub && (
+                      <p className="mt-0.5 text-xs text-muted-foreground truncate">{card.sub}</p>
+                    )}
+                  </div>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.bg}`}>
+                    <Icon className={`h-5 w-5 ${c.icon}`} />
+                  </div>
                 </div>
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.bg}`}>
-                  <Icon className={`h-5 w-5 ${c.icon}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         );
       })}
     </div>
@@ -381,7 +389,15 @@ function ExpiryAlertsWidget() {
           <EmptyState icon={Clock} message="No upcoming expiries" />
         ) : (
           alerts.slice(0, 6).map((a) => (
-            <div key={a.id} className="flex items-start justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2.5">
+            <Link
+              key={a.id}
+              to={a.id.startsWith("lic-") ? "/drivers/$driverId" : "/fleet/trucks/$truckId"}
+              params={a.id.startsWith("lic-")
+                ? { driverId:  a.id.replace(/^lic-/, "") }
+                : { truckId: a.id.replace(/^(?:ins|insp)-/, "") }
+              }
+              className="flex items-start justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
+            >
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{a.entity}</p>
                 <p className="text-xs text-muted-foreground">{a.type}</p>
@@ -392,7 +408,7 @@ function ExpiryAlertsWidget() {
               <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${urgencyClass(a.daysLeft)}`}>
                 {a.daysLeft <= 0 ? "Expired" : `${a.daysLeft}d`}
               </span>
-            </div>
+            </Link>
           ))
         )}
       </CardContent>
@@ -439,7 +455,12 @@ function MaintenanceAlertsWidget() {
           <EmptyState icon={Wrench} message="No active work orders" />
         ) : (
           items.map((wo) => (
-            <div key={wo.id} className="flex items-start justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2.5">
+            <Link
+              key={wo.id}
+              to="/maintenance/work-orders/$workOrderId"
+              params={{ workOrderId: wo.id }}
+              className="flex items-start justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
+            >
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{wo.title}</p>
                 <p className="text-xs text-muted-foreground">{wo.truckPlateNumber ?? "—"} · {wo.workOrderNumber}</p>
@@ -452,7 +473,7 @@ function MaintenanceAlertsWidget() {
                   <span className="text-[10px] font-semibold text-red-500 uppercase tracking-wide">Overdue</span>
                 )}
               </div>
-            </div>
+            </Link>
           ))
         )}
       </CardContent>
@@ -509,7 +530,7 @@ function CostSummaryWidget() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <p className="text-2xl font-bold tabular-nums">{formatCurrency(kpis.totalCombined, currency)}</p>
+          <p className="text-2xl font-bold tabular-nums">{formatCurrency(kpis.totalCombined)}</p>
           <p className="text-xs text-muted-foreground">Total (fuel + expenses)</p>
         </div>
 
@@ -532,7 +553,7 @@ function CostSummaryWidget() {
                 <span className="text-muted-foreground text-xs">{b.label}</span>
               </div>
               <span className="tabular-nums font-medium text-foreground text-xs">
-                {formatCurrency(b.value, currency)}
+                {formatCurrency(b.value)}
               </span>
             </div>
           ))}

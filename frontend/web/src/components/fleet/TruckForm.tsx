@@ -42,7 +42,7 @@ const truckSchema = z.object({
   make:                  z.string().min(1, "Make is required"),
   model:                 z.string().min(1, "Model is required"),
   year:                  z.coerce.number().int().min(1980).max(new Date().getFullYear() + 1),
-  status:                z.enum(["active", "inactive", "in-progress"] as const),
+  status:                z.enum(["active", "inactive", "in-progress", "under-maintenance"] as const),
   odometerKm:            z.coerce.number().min(0).default(0),
   fuelType:              z.enum(["diesel", "petrol", "electric", "hybrid"] as const),
   vin:                   z.string().optional(),
@@ -242,9 +242,10 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel }: Truc
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status &amp; Fuel</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <SF name="status" label="Status" form={form} options={[
-              { value: "active",      label: "Active" },
-              { value: "inactive",    label: "Inactive" },
-              { value: "in-progress", label: "In Progress" },
+              { value: "active",             label: "Active" },
+              { value: "inactive",           label: "Inactive" },
+              { value: "in-progress",        label: "In Progress" },
+              { value: "under-maintenance",  label: "Under Maintenance" },
             ]} />
             <SF name="fuelType" label="Fuel Type" form={form} options={[
               { value: "diesel",   label: "Diesel" },

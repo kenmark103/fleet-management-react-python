@@ -1,33 +1,23 @@
+/**
+ * components/fleet/StatusBadge.tsx
+ *
+ * Thin type-narrowing wrappers around the generic StatusBadge atom.
+ * All colour/label logic lives in lib/constants.ts — add new statuses
+ * there and they automatically appear here and everywhere else.
+ */
 
-import { Badge } from "../ui/badge";
-import { cn } from "../../lib/utils";
+import { StatusBadge } from "../atoms/StatusBadge";
 import type { TruckStatus, TrailerStatus } from "../../types/fleet";
+import type { DriverStatus } from "../../types/driver";
 
-const TRUCK_CONFIG: Record<TruckStatus, { label: string; className: string }> = {
-  active:       { label: "Active",       className: "bg-green-100 text-green-700 border-green-200" },
-  inactive:     { label: "Inactive",     className: "bg-gray-100  text-gray-600  border-gray-200"  },
-  "in-progress":{ label: "In Progress",  className: "bg-blue-100  text-blue-700  border-blue-200"  },
-};
-
-const TRAILER_CONFIG: Record<TrailerStatus, { label: string; className: string }> = {
-  active:   { label: "Active",   className: "bg-green-100 text-green-700 border-green-200" },
-  inactive: { label: "Inactive", className: "bg-gray-100  text-gray-600  border-gray-200"  },
-};
-
-export function TruckStatusBadge({ status }: { status: TruckStatus }) {
-  const { label, className } = TRUCK_CONFIG[status] ?? TRUCK_CONFIG.inactive;
-  return (
-    <Badge variant="outline" className={cn("font-medium", className)}>
-      {label}
-    </Badge>
-  );
+export function TruckStatusBadge({ status, className }: { status: TruckStatus; className?: string }) {
+  return <StatusBadge status={status} className={className} />;
 }
 
-export function TrailerStatusBadge({ status }: { status: TrailerStatus }) {
-  const { label, className } = TRAILER_CONFIG[status] ?? TRAILER_CONFIG.inactive;
-  return (
-    <Badge variant="outline" className={cn("font-medium", className)}>
-      {label}
-    </Badge>
-  );
+export function TrailerStatusBadge({ status, className }: { status: TrailerStatus; className?: string }) {
+  return <StatusBadge status={status} className={className} />;
+}
+
+export function DriverStatusBadge({ status, className }: { status: DriverStatus; className?: string }) {
+  return <StatusBadge status={status} className={className} />;
 }

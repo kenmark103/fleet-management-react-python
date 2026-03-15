@@ -2,7 +2,7 @@
 // ENUMS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type DriverStatus = "active" | "inactive";
+export type DriverStatus = "active" | "inactive" | "on-leave" | "suspended";
 
 export type DriverDocumentType =
   | "license"

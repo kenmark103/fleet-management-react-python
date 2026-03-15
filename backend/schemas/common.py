@@ -49,14 +49,16 @@ class UserRole(str, Enum):
 
 
 class TruckStatus(str, Enum):
-    ACTIVE      = "active"
-    INACTIVE    = "inactive"
-    IN_PROGRESS = "in-progress"   # serialised as "in-progress" (hyphen)
+    ACTIVE             = "active"
+    INACTIVE           = "inactive"
+    IN_PROGRESS        = "in-progress"        # serialised as "in-progress" (hyphen)
+    UNDER_MAINTENANCE  = "under-maintenance"  # serialised as "under-maintenance" (hyphen)
 
 
 class TrailerStatus(str, Enum):
-    ACTIVE   = "active"
-    INACTIVE = "inactive"
+    ACTIVE            = "active"
+    INACTIVE          = "inactive"
+    UNDER_MAINTENANCE = "under-maintenance"   # serialised as "under-maintenance" (hyphen)
 
 
 class TrailerType(str, Enum):
@@ -90,8 +92,10 @@ class DriverDocumentType(str, Enum):
 
 
 class DriverStatus(str, Enum):
-    ACTIVE   = "active"
-    INACTIVE = "inactive"
+    ACTIVE    = "active"
+    INACTIVE  = "inactive"
+    ON_LEAVE  = "on-leave"    # serialised as "on-leave" (hyphen)
+    SUSPENDED = "suspended"
 
 
 class TripStatus(str, Enum):

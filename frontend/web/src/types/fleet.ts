@@ -11,7 +11,7 @@
 // TRUCKS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TruckStatus = "active" | "inactive" | "in-progress";
+export type TruckStatus = "active" | "inactive" | "in-progress" | "under-maintenance";
 
 export interface Truck {
   id:                    string;
@@ -29,10 +29,12 @@ export interface Truck {
   insuranceExpiryDate?:  string;   // ISO 8601
   inspectionExpiryDate?: string;
   notes?:                string;
-  // Stage 2: catalog spec fields — populated when make/model selected from catalog
+  // Stage 2: catalog spec fields
   wheelConfig?:          string;
   grossWeightTons?:      number;
   axleLoadTons?:         number;
+  // Stage 4: vehicle image
+  imageUrl?:             string;
   createdAt:             string;
   updatedAt:             string;
 }
@@ -65,7 +67,7 @@ export interface ServiceRecord {
 // TRAILERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TrailerStatus = "active" | "inactive";
+export type TrailerStatus = "active" | "inactive" | "under-maintenance";
 
 export interface Trailer {
   id:                    string;
@@ -82,6 +84,8 @@ export interface Trailer {
   notes?:                string;
   // Stage 2: catalog spec field
   axles?:                number;
+  // Stage 4: vehicle image
+  imageUrl?:             string;
   createdAt:             string;
   updatedAt:             string;
 }

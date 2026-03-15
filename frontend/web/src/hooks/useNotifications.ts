@@ -90,6 +90,10 @@ export function useNotifications({
     queryFn:         () =>
       api.get<PaginatedResponse<Notification>>(`/api/v1/notifications?${params}`).then(r => r.data),
     placeholderData: (prev) => prev,
+    // Match the unread-count poll cadence — panel never shows stale data
+    // when the badge has already incremented.
+    refetchInterval: 30_000,
+    staleTime:       15_000,
   })
 }
 

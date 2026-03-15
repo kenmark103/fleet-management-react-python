@@ -26,8 +26,6 @@ import type {
 } from "../../../types/user";
 import { getInitials }  from "../../../lib/utils";
 import { useAuth }      from "../../../lib/auth-context";
-
-// shadcn components — matches the rest of the app
 import { Button }    from "../../../components/ui/button";
 import { Input }     from "../../../components/ui/input";
 import { Label }     from "../../../components/ui/label";
@@ -120,10 +118,13 @@ function AvatarSection({
     mutationFn: (file: File) => {
       const fd = new FormData();
       fd.append("file", file);
-      // ✅ axios handles multipart boundary automatically — do NOT set
-      //    Content-Type manually or it will break the boundary header.
+      // Clear Content-Type so axios re-detects FormData and sets the correct
+      // multipart/form-data boundary. Without this, a global JSON interceptor
+      // on the axios instance stomps the boundary and the backend gets a 422.
       return apiClient
-        .post<ApiResponse<UserType>>("/api/v1/settings/profile/avatar", fd)
+        .post<ApiResponse<UserType>>("/api/v1/settings/profile/avatar", fd, {
+          headers: { "Content-Type": undefined },
+        })
         .then(r => r.data.data);
     },
     onSuccess: (updated) => {
@@ -133,7 +134,13 @@ function AvatarSection({
       setError(null);
     },
     onError: (e: any) => {
-      const msg = e?.response?.data?.detail ?? e.message ?? "Upload failed";
+      // FastAPI 422 detail is an array of {loc, msg, type} objects — not a string.
+      // Rendering an object directly in JSX causes React error #31.
+      // Flatten to a readable string here so setError always receives a string.
+      const detail = e?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg ?? String(d)).join(", ")
+        : (typeof detail === "string" ? detail : e.message ?? "Upload failed");
       setError(msg);
       setPreview(profile.avatarUrl); // revert optimistic preview
     },

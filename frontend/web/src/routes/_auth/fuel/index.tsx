@@ -63,7 +63,8 @@ import {
 import { ConfirmDialog } from "../../../components/atoms/ConfirmDialog";
 import { PageHeader } from "../../../components/molecules/PageHeader";
 import { StatusBadge } from "../../../components/atoms/StatusBadge";
-import { formatDate, formatCurrency, formatNumber, truncate } from "../../../lib/utils";
+import { formatNumber, truncate } from "../../../lib/utils";
+import { useAppSettings } from "#/lib/settings-context";
 import { EXPENSE_CATEGORY_LABELS, EXPENSE_CATEGORY_COLORS } from "../../../lib/constants";
 import { usePermission } from "../../../hooks/usePermission";
 import {
@@ -103,6 +104,7 @@ const DONUT_COLORS = [
 function FuelPage() {
   const { can, role } = usePermission();
   const isDriver = role === "DRIVER";
+  const {formatCurrency, formatAppDate} = useAppSettings();
 
   // ── Fuel log filters ──────────────────────────────────────────────────────
   const [logParams, setLogParams] = useState<FuelLogParams>({
@@ -279,7 +281,7 @@ function FuelPage() {
                   logsData.data.map((log) => (
                     <TableRow key={log.id} className="hover:bg-muted/30">
                       <TableCell className="text-sm">
-                        {formatDate(log.loggedAt, "datetime")}
+                        {formatAppDate(log.loggedAt)}
                       </TableCell>
                       <TableCell>
                         <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
@@ -308,10 +310,10 @@ function FuelPage() {
                         {formatNumber(log.litres, 1)} L
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
-                        {formatCurrency(log.pricePerLitre, log.currency)}
+                        {formatCurrency(log.pricePerLitre)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm font-medium">
-                        {formatCurrency(log.totalCost, log.currency)}
+                        {formatCurrency(log.totalCost)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {truncate(log.stationName, 20)}
@@ -461,7 +463,7 @@ function FuelPage() {
                     expensesData.data.map((expense) => (
                       <TableRow key={expense.id} className="hover:bg-muted/30">
                         <TableCell className="text-sm">
-                          {formatDate(expense.expenseDate)}
+                          {formatAppDate(expense.expenseDate)}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -496,7 +498,7 @@ function FuelPage() {
                           ) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm font-medium">
-                          {formatCurrency(expense.amount, expense.currency)}
+                          {formatCurrency(expense.amount)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -608,19 +610,19 @@ function FuelPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <KpiCard
                     label="Total Fuel Cost"
-                    value={formatCurrency(report.kpis.totalFuelCost, report.currency)}
+                    value={formatCurrency(report.kpis.totalFuelCost)}
                     icon={<Fuel className="h-5 w-5 text-blue-500" />}
                     color="blue"
                   />
                   <KpiCard
                     label="Total Expenses"
-                    value={formatCurrency(report.kpis.totalExpenses, report.currency)}
+                    value={formatCurrency(report.kpis.totalExpenses)}
                     icon={<Receipt className="h-5 w-5 text-orange-500" />}
                     color="orange"
                   />
                   <KpiCard
                     label="Total Combined"
-                    value={formatCurrency(report.kpis.totalCombined, report.currency)}
+                    value={formatCurrency(report.kpis.totalCombined)}
                     icon={<DollarSign className="h-5 w-5 text-emerald-500" />}
                     color="emerald"
                   />
@@ -628,7 +630,7 @@ function FuelPage() {
                     label="Avg Cost / km"
                     value={
                       report.kpis.avgCostPerKm != null
-                        ? `${formatCurrency(report.kpis.avgCostPerKm, report.currency)}/km`
+                        ? `${formatCurrency(report.kpis.avgCostPerKm)}/km`
                         : "—"
                     }
                     icon={<Gauge className="h-5 w-5 text-purple-500" />}
@@ -650,7 +652,7 @@ function FuelPage() {
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip
-                          formatter={(v: number) => formatCurrency(v, report.currency)}
+                          formatter={(v: number | undefined): [string, string] => [formatCurrency(v), ""]}
                         />
                         <Line
                           type="monotone"
@@ -677,7 +679,7 @@ function FuelPage() {
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip
-                          formatter={(v: number) => formatCurrency(v, report.currency)}
+                          formatter={(v: number | undefined): [string, string] => [formatCurrency(v), ""]}
                         />
                         <Bar
                           dataKey="totalAmount"
@@ -719,7 +721,7 @@ function FuelPage() {
                               ))}
                             </Pie>
                             <Tooltip
-                              formatter={(v: number) => formatCurrency(v, report.currency)}
+                              formatter={(v: number | undefined): [string, string] => [formatCurrency(v), ""]}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -732,7 +734,7 @@ function FuelPage() {
                               />
                               <span className="flex-1 capitalize">{item.category}</span>
                               <span className="font-medium">
-                                {formatCurrency(item.total, report.currency)}
+                                {formatCurrency(item.total)}
                               </span>
                               <span className="text-muted-foreground w-10 text-right">
                                 {item.percentage}%
@@ -783,7 +785,7 @@ function FuelPage() {
                                   {formatNumber(truck.totalLitres, 1)} L
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-sm">
-                                  {formatCurrency(truck.totalFuelCost, report.currency)}
+                                  {formatCurrency(truck.totalFuelCost)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-sm">
                                   {truck.avgLPer100km != null

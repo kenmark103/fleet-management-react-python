@@ -81,34 +81,43 @@ export const STATUS_VALUES = [
   "cancelled",
   "in-progress",
   "scheduled",
+  "under-maintenance",
+  "on-leave",
+  "suspended",
 ] as const;
 
 export type StatusValue = (typeof STATUS_VALUES)[number];
 
 /** Human-readable labels for StatusBadge */
 export const STATUS_LABELS: Record<StatusValue, string> = {
-  active: "Active",
-  inactive: "Inactive",
-  "en-route": "En Route",
-  completed: "Completed",
-  pending: "Pending",
-  overdue: "Overdue",
-  cancelled: "Cancelled",
-  "in-progress": "In Progress",
-  scheduled: "Scheduled",
+  active:              "Active",
+  inactive:            "Inactive",
+  "en-route":          "En Route",
+  completed:           "Completed",
+  pending:             "Pending",
+  overdue:             "Overdue",
+  cancelled:           "Cancelled",
+  "in-progress":       "In Progress",
+  scheduled:           "Scheduled",
+  "under-maintenance": "Under Maintenance",
+  "on-leave":          "On Leave",
+  suspended:           "Suspended",
 };
 
 /** Tailwind color classes for StatusBadge */
 export const STATUS_COLORS: Record<StatusValue, string> = {
-  active: "bg-green-100 text-green-700 border-green-200",
-  inactive: "bg-gray-100 text-gray-600 border-gray-200",
-  "en-route": "bg-blue-100 text-blue-700 border-blue-200",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  overdue: "bg-red-100 text-red-700 border-red-200",
-  cancelled: "bg-red-50 text-red-500 border-red-100",
-  "in-progress": "bg-indigo-100 text-indigo-700 border-indigo-200",
-  scheduled: "bg-sky-100 text-sky-700 border-sky-200",
+  active:              "bg-green-100 text-green-700 border-green-200",
+  inactive:            "bg-gray-100 text-gray-600 border-gray-200",
+  "en-route":          "bg-blue-100 text-blue-700 border-blue-200",
+  completed:           "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pending:             "bg-yellow-100 text-yellow-700 border-yellow-200",
+  overdue:             "bg-red-100 text-red-700 border-red-200",
+  cancelled:           "bg-red-50 text-red-500 border-red-100",
+  "in-progress":       "bg-indigo-100 text-indigo-700 border-indigo-200",
+  scheduled:           "bg-sky-100 text-sky-700 border-sky-200",
+  "under-maintenance": "bg-orange-100 text-orange-700 border-orange-200",
+  "on-leave":          "bg-purple-100 text-purple-700 border-purple-200",
+  suspended:           "bg-red-100 text-red-800 border-red-300",
 };
 
 
@@ -146,12 +155,21 @@ export const TRUCK_STATUSES = [
   "active",
   "inactive",
   "in-progress",
+  "under-maintenance",
 ] as const satisfies StatusValue[];
 
 /** §types/driver.ts — DriverStatus values */
 export const DRIVER_STATUSES = [
   "active",
   "inactive",
+  "on-leave",
+  "suspended",
+] as const satisfies StatusValue[];
+
+export const TRAILER_STATUSES = [
+  "active",
+  "inactive",
+  "under-maintenance",
 ] as const satisfies StatusValue[];
 
 /** §types/trip.ts — TripStatus values */
@@ -332,5 +350,3 @@ export const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 
 /** API base path prefix */
 export const API_BASE_URL = "/api/v1";
-
-

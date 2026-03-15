@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import asyncio
+from fastapi.staticfiles import StaticFiles
 
 from core.config import get_settings
 from db.dbconfig import create_db_tables
@@ -63,6 +64,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+#routing
 app.include_router(auth_router)
 app.include_router(oauth_router)
 app.include_router(health_router)

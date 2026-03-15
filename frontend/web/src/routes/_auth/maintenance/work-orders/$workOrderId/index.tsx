@@ -18,7 +18,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { StatusBadge } from "../../../../../components/atoms/StatusBadge";
 import { ConfirmDialog } from "../../../../../components/atoms/ConfirmDialog";
 import { PageHeader } from "../../../../../components/molecules/PageHeader";
-import { formatDate, formatCurrency, formatNumber } from "../../../../../lib/utils";
+import { formatNumber } from "../../../../../lib/utils";
+import { useAppSettings } from "#/lib/settings-context";
 import { usePermission } from "../../../../../hooks/usePermission";
 import {
   useWorkOrder, useUpdateWorkOrderStatus, useDeleteWorkOrder,
@@ -42,6 +43,7 @@ function WorkOrderDetailPage() {
   const { workOrderId } = Route.useParams();
   const navigate        = useNavigate();
   const { can }         = usePermission();
+  const {formatAppDate, formatCurrency} = useAppSettings();
 
   const { data: wo, isLoading } = useWorkOrder(workOrderId);
   const updateStatus = useUpdateWorkOrderStatus(workOrderId);
@@ -161,8 +163,8 @@ function WorkOrderDetailPage() {
             <h3 className="font-medium text-sm">Schedule</h3>
             <div className="space-y-2 text-sm">
               {[
-                ["Scheduled",  formatDate(wo.scheduledDate)],
-                ["Completed",  wo.completedDate ? formatDate(wo.completedDate) : "—"],
+                ["Scheduled",  formatAppDate(wo.scheduledDate)],
+                ["Completed",  wo.completedDate ? formatAppDate(wo.completedDate) : "—"],
                 ["Odometer",   wo.odometerAtService ? `${formatNumber(wo.odometerAtService)} km` : "—"],
               ].map(([label, value]) => (
                 <div key={String(label)} className="flex justify-between">
@@ -179,16 +181,16 @@ function WorkOrderDetailPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Estimated</span>
-                <span className="font-mono">{wo.estimatedCost ? formatCurrency(wo.estimatedCost, wo.currency) : "—"}</span>
+                <span className="font-mono">{wo.estimatedCost ? formatCurrency(wo.estimatedCost) : "—"}</span>
               </div>
               <div className="flex justify-between font-medium">
                 <span className="text-muted-foreground">Actual (parts)</span>
-                <span className="font-mono">{wo.actualCost != null ? formatCurrency(wo.actualCost, wo.currency) : "—"}</span>
+                <span className="font-mono">{wo.actualCost != null ? formatCurrency(wo.actualCost) : "—"}</span>
               </div>
               {wo.estimatedCost != null && wo.actualCost != null && (
                 <div className={`flex justify-between text-xs pt-1 border-t ${wo.actualCost > wo.estimatedCost ? "text-red-600" : "text-emerald-600"}`}>
                   <span>Variance</span>
-                  <span className="font-mono">{formatCurrency(wo.actualCost - wo.estimatedCost, wo.currency)}</span>
+                  <span className="font-mono">{formatCurrency(wo.actualCost - wo.estimatedCost)}</span>
                 </div>
               )}
             </div>
@@ -253,7 +255,7 @@ function WorkOrderDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Total (auto)</Label>
-                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 font-mono text-sm">{formatCurrency(partTotal, wo.currency)}</div>
+                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 font-mono text-sm">{formatCurrency(partTotal)}</div>
                 </div>
                 <div className="md:col-span-4 flex gap-2 pt-1">
                   <Button type="submit" size="sm" disabled={addPart.isPending || !partName.trim()}>
@@ -283,8 +285,8 @@ function WorkOrderDetailPage() {
                     <TableCell className="font-medium text-sm">{part.partName}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{part.partNumber ?? "—"}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{part.quantity}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatCurrency(part.unitCost, part.currency)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-medium">{formatCurrency(part.totalCost, part.currency)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatCurrency(part.unitCost)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-medium">{formatCurrency(part.totalCost)}</TableCell>
                     <TableCell>
                       {can("maintenance:update-work-order") && wo.status !== "completed" && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePartId(part.id)}>
@@ -297,7 +299,7 @@ function WorkOrderDetailPage() {
                 {wo.parts.length > 0 && (
                   <TableRow className="bg-muted/20 font-medium">
                     <TableCell colSpan={4} className="text-right text-sm">Total Parts Cost</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatCurrency(wo.actualCost ?? 0, wo.currency)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatCurrency(wo.actualCost ?? 0)}</TableCell>
                     <TableCell />
                   </TableRow>
                 )}
