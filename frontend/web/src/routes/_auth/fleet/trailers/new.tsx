@@ -1,9 +1,6 @@
 /**
  * routes/_auth/fleet/trailers/new.tsx
  * Route: /fleet/trailers/new
- *
- * UI fixes:
- *   - PageHeader has Container icon + Back button (matches app pattern)
  */
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -45,8 +42,12 @@ function NewTrailer() {
         isLoading={createTrailer.isPending}
         onCancel={() => navigate({ to: "/fleet/trailers" })}
         onSubmit={async (values) => {
-          await createTrailer.mutateAsync(values);
-          navigate({ to: "/fleet/trailers" });
+          const result = await createTrailer.mutateAsync(values);
+          // Redirect to edit so user can immediately upload a vehicle photo
+          navigate({
+            to: "/fleet/trailers/$trailerId/edit",
+            params: { trailerId: result.id },
+          });
         }}
       />
     </div>

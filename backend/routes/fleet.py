@@ -14,6 +14,8 @@ from services import fleet as svc
 from schemas.common import TruckStatus, TrailerStatus, PaginationMeta, PaginatedResponse
 import os, shutil, uuid
 
+from services.storage import delete_image, upload_image
+
 router = APIRouter(prefix="/fleet", tags=["fleet"])
 
 # ── Role dependency aliases ────────────────────────────────────────────────────
@@ -23,33 +25,6 @@ AdminDep   = Depends(require_roles(["ADMIN"]))
 # ── Image storage ──────────────────────────────────────────────────────────────
 _ALLOWED_IMG  = {"image/jpeg", "image/png", "image/webp"}
 _MAX_IMG_SIZE = 5 * 1024 * 1024   # 5 MB
-
-def _img_dir(subfolder: str) -> str:
-    path = f"static/{subfolder}"
-    os.makedirs(path, exist_ok=True)
-    return path
-
-async def _save_image(file: UploadFile, subfolder: str, record_id: str) -> str:
-    """Validate, save and return the URL path for a vehicle image."""
-    if file.content_type not in _ALLOWED_IMG:
-        raise HTTPException(422, f"Unsupported file type '{file.content_type}'. Use JPEG, PNG, or WebP.")
-    if file.size and file.size > _MAX_IMG_SIZE:
-        raise HTTPException(413, "Image must be under 5 MB.")
-
-    ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
-    if ext not in ("jpg", "jpeg", "png", "webp"):
-        ext = "jpg"
-    filename = f"{record_id}_{uuid.uuid4().hex[:10]}.{ext}"
-    filepath = os.path.join(_img_dir(subfolder), filename)
-
-    try:
-        with open(filepath, "wb") as buf:
-            shutil.copyfileobj(file.file, buf)
-    except OSError as exc:
-        raise HTTPException(500, f"Failed to save image: {exc}") from exc
-
-    return f"/static/{subfolder}/{filename}"
-
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 
@@ -146,27 +121,26 @@ async def delete_truck(
 
 @router.post("/trucks/{truck_id}/image", response_model=TruckResponse)
 async def upload_truck_image(
-    truck_id: str,
-    db: DB,
-    file: UploadFile = File(...),
-    _: User = AdminDep,
+        truck_id: str,
+        db: DB,
+        file: UploadFile = File(...),
+        _: User = AdminDep,
 ):
-    """Upload or replace a truck's photo. Stored in static/trucks/."""
     truck = await db.get(Truck, truck_id)
     if not truck:
         raise HTTPException(404, "Truck not found.")
 
-    # Remove old image if present
-    if truck.image_url:
-        old_path = truck.image_url.lstrip("/")
-        if os.path.isfile(old_path):
-            try: os.remove(old_path)
-            except OSError: pass
+    await delete_image(truck.image_url)
 
-    truck.image_url = await _save_image(file, "trucks", truck_id)
+    truck.image_url = await upload_image(
+        file=file,
+        folder="trucks",
+        record_id=truck_id,
+    )
     await db.commit()
     await db.refresh(truck)
     return TruckResponse.model_validate(truck)
+
 
 
 # ── Trailers ───────────────────────────────────────────────────────────────────
@@ -254,23 +228,22 @@ async def delete_trailer(
 
 @router.post("/trailers/{trailer_id}/image", response_model=TrailerResponse)
 async def upload_trailer_image(
-    trailer_id: str,
-    db: DB,
-    file: UploadFile = File(...),
-    _: User = AdminDep,
+        trailer_id: str,
+        db: DB,
+        file: UploadFile = File(...),
+        _: User = AdminDep,
 ):
-    """Upload or replace a trailer's photo. Stored in static/trailers/."""
     trailer = await db.get(Trailer, trailer_id)
     if not trailer:
         raise HTTPException(404, "Trailer not found.")
 
-    if trailer.image_url:
-        old_path = trailer.image_url.lstrip("/")
-        if os.path.isfile(old_path):
-            try: os.remove(old_path)
-            except OSError: pass
+    await delete_image(trailer.image_url)
 
-    trailer.image_url = await _save_image(file, "trailers", trailer_id)
+    trailer.image_url = await upload_image(
+        file=file,
+        folder="trailers",
+        record_id=trailer_id,
+    )
     await db.commit()
     await db.refresh(trailer)
     return TrailerResponse.model_validate(trailer)

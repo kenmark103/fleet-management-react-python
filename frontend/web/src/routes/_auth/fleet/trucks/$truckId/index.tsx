@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Pencil, Trash2, ArrowLeft, Truck, Gauge, Droplets, Calendar, MapPin } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft, Truck, Gauge, Droplets, Calendar } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
@@ -20,7 +20,7 @@ import { useTruck, useDeleteTruck } from "../../../../../hooks/useFleet";
 import { useTrips } from "../../../../../hooks/useTrips";
 import type { Trip } from "../../../../../types/trips";
 import { usePermission } from "../../../../../hooks/usePermission";
-import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon } from "../../../../../lib/utils";
+import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon, getStaticUrl } from "../../../../../lib/utils";
 import { cn } from "../../../../../lib/utils";
 import { STATUS_COLORS, STATUS_LABELS } from "../../../../../lib/constants";
 
@@ -128,7 +128,7 @@ function TruckDetail() {
             <div className="flex items-center gap-4">
               {truck.imageUrl ? (
                 <img
-                  src={truck.imageUrl}
+                  src={getStaticUrl(truck.imageUrl) ?? undefined}
                   alt={truck.plateNumber}
                   className="h-16 w-24 rounded-xl object-cover ring-2 ring-muted shrink-0"
                 />

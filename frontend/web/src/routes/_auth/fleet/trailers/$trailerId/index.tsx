@@ -18,7 +18,7 @@ import { ConfirmDialog } from "../../../../../components/atoms/ConfirmDialog";
 import { TrailerStatusBadge } from "../../../../../components/fleet/StatusBadge";
 import { useTrailer, useDeleteTrailer } from "../../../../../hooks/useFleet";
 import { usePermission } from "../../../../../hooks/usePermission";
-import { formatDate, toTitleCase, isExpired, isExpiringSoon } from "../../../../../lib/utils";
+import { formatDate, toTitleCase, isExpired, isExpiringSoon, getStaticUrl } from "../../../../../lib/utils";
 import { cn } from "../../../../../lib/utils";
 
 export const Route = createFileRoute("/_auth/fleet/trailers/$trailerId/")({
@@ -74,8 +74,8 @@ function TrailerDetail() {
             <div className="flex items-center gap-4">
               {/* Show vehicle photo if available, else fall back to icon */}
               {trailer.imageUrl ? (
-                <img
-                  src={trailer.imageUrl}
+                <img   
+                  src={getStaticUrl(trailer.imageUrl) ?? undefined}
                   alt={trailer.plateNumber}
                   className="h-16 w-24 rounded-xl object-cover ring-2 ring-muted shrink-0"
                 />

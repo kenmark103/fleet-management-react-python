@@ -73,7 +73,7 @@ import { DetailCard }          from "../../../../components/molecules/DetailCard
 import { Button }              from "../../../../components/ui/button";
 import { QuickFuelLogSheet }   from "../../../../components/forms/QuickFuelLogSheet";
 import { formatDate, formatDistance } from "../../../../lib/utils";
-import type { TripStatus }     from "../../../../types/trips";
+import type { TripStatus, Trip } from "../../../../types/trips";
 import { toast }               from "sonner";
 
 export const Route = createFileRoute("/_auth/trips/$tripId/")({
@@ -182,23 +182,6 @@ function TripDetailPage() {
       toast.error(err instanceof Error ? err.message : "Failed to delete trip.");
     }
   };
-
-  // ── Map data ──────────────────────────────────────────────────────────────
-  const hasOrigin   = Boolean(trip.originLat && trip.originLng);
-  const hasDest     = Boolean(trip.destinationLat && trip.destinationLng);
-  const hasLastPing = Boolean(trip.lastPing);
-
-  const mapCenter: LatLngExpression = hasOrigin
-    ? [trip.originLat!, trip.originLng!]
-    : hasLastPing ? [trip.lastPing!.lat, trip.lastPing!.lng] : [20, 0];
-
-  const mapZoom = hasOrigin || hasLastPing ? 8 : 2;
-
-  const polylinePositions: LatLngExpression[] = [
-    ...(hasOrigin   ? [[trip.originLat!,      trip.originLng!]      as LatLngExpression] : []),
-    ...(hasLastPing ? [[trip.lastPing!.lat,    trip.lastPing!.lng]   as LatLngExpression] : []),
-    ...(hasDest     ? [[trip.destinationLat!, trip.destinationLng!] as LatLngExpression] : []),
-  ];
 
   // ── Show "Log Fuel" only when en-route and user has fuel permission ────────
   const showFuelButton = trip.status === "en-route" && can("fuel:log-own");
@@ -356,60 +339,7 @@ function TripDetailPage() {
 
         {/* ── Right column — map ──────────────────────────────────────────── */}
         <div className="lg:col-span-2">
-          <div className="bg-card p-4 rounded-lg border">
-            <h3 className="font-medium mb-3 flex items-center gap-2 text-sm">
-              <Navigation className="h-4 w-4" />Route Map
-            </h3>
-            <MapContainer
-              center={mapCenter}
-              zoom={mapZoom}
-              scrollWheelZoom
-              className="rounded-md"
-              style={{ height: "500px", width: "100%" }}
-            >
-              <MapViewUpdater center={mapCenter} zoom={mapZoom} />
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-              />
-              {hasOrigin && (
-                <Marker position={[trip.originLat!, trip.originLng!]} icon={greenIcon}>
-                  <Popup><strong>Origin</strong><br />{trip.origin}</Popup>
-                </Marker>
-              )}
-              {hasDest && (
-                <Marker position={[trip.destinationLat!, trip.destinationLng!]} icon={redIcon}>
-                  <Popup><strong>Destination</strong><br />{trip.destination}</Popup>
-                </Marker>
-              )}
-              {hasLastPing && (
-                <Marker position={[trip.lastPing!.lat, trip.lastPing!.lng]} icon={truckIcon}>
-                  <Popup>
-                    <strong>Last Known Location</strong><br />
-                    {formatDate(trip.lastPing!.recordedAt, "datetime")}
-                  </Popup>
-                </Marker>
-              )}
-              {polylinePositions.length >= 2 && (
-                <Polyline
-                  positions={polylinePositions}
-                  pathOptions={{ color: "#3b82f6", weight: 3, dashArray: "8 4" }}
-                />
-              )}
-            </MapContainer>
-            <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
-              {hasOrigin   && <LegendDot color="bg-green-500"  label="Origin" />}
-              {hasDest     && <LegendDot color="bg-red-500"    label="Destination" />}
-              {hasLastPing && (
-                <LegendDot color="bg-yellow-400" label={`Last Location (${formatDate(trip.lastPing!.recordedAt, "time")})`} />
-              )}
-              {!hasOrigin && !hasDest && !hasLastPing && (
-                <span className="italic">
-                  No location data yet — coords are populated when the trip is created or updated.
-                </span>
-              )}
-            </div>
-          </div>
+          <TripRouteMap trip={trip} />
         </div>
       </div>
 
@@ -450,6 +380,93 @@ function TripDetailPage() {
         destructive
         isLoading={deleteTrip.isPending}
       />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRIP ROUTE MAP  — isolated component so Leaflet's z-indexes are contained
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TripRouteMap({ trip }: { trip: Trip }) {
+  const hasOrigin   = Boolean(trip.originLat && trip.originLng);
+  const hasDest     = Boolean(trip.destinationLat && trip.destinationLng);
+  const hasLastPing = Boolean(trip.lastPing);
+
+  const mapCenter: LatLngExpression = hasOrigin
+    ? [trip.originLat!, trip.originLng!]
+    : hasLastPing
+    ? [trip.lastPing!.lat, trip.lastPing!.lng]
+    : [20, 0];
+
+  const mapZoom = hasOrigin || hasLastPing ? 8 : 2;
+
+  const polylinePositions: LatLngExpression[] = [
+    ...(hasOrigin   ? [[trip.originLat!,       trip.originLng!]      as LatLngExpression] : []),
+    ...(hasLastPing ? [[trip.lastPing!.lat,     trip.lastPing!.lng]   as LatLngExpression] : []),
+    ...(hasDest     ? [[trip.destinationLat!,   trip.destinationLng!] as LatLngExpression] : []),
+  ];
+
+  return (
+    <div className="bg-card p-4 rounded-lg border">
+      <h3 className="font-medium mb-3 flex items-center gap-2 text-sm">
+        <Navigation className="h-4 w-4" />Route Map
+      </h3>
+      {/*
+        isolation-isolate creates a new stacking context that contains
+        Leaflet's internal z-indexes so the map never floats above the
+        topbar (z-40) or over sheets/modals.
+      */}
+      <div className="rounded-md overflow-hidden" style={{ isolation: "isolate" }}>
+        <MapContainer
+          center={mapCenter}
+          zoom={mapZoom}
+          scrollWheelZoom
+          style={{ height: "380px", width: "100%" }}
+        >
+          <MapViewUpdater center={mapCenter} zoom={mapZoom} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+          />
+          {hasOrigin && (
+            <Marker position={[trip.originLat!, trip.originLng!]} icon={greenIcon}>
+              <Popup><strong>Origin</strong><br />{trip.origin}</Popup>
+            </Marker>
+          )}
+          {hasDest && (
+            <Marker position={[trip.destinationLat!, trip.destinationLng!]} icon={redIcon}>
+              <Popup><strong>Destination</strong><br />{trip.destination}</Popup>
+            </Marker>
+          )}
+          {hasLastPing && (
+            <Marker position={[trip.lastPing!.lat, trip.lastPing!.lng]} icon={truckIcon}>
+              <Popup>
+                <strong>Last Known Location</strong><br />
+                {formatDate(trip.lastPing!.recordedAt, "datetime")}
+              </Popup>
+            </Marker>
+          )}
+          {polylinePositions.length >= 2 && (
+            <Polyline
+              positions={polylinePositions}
+              pathOptions={{ color: "#3b82f6", weight: 3, dashArray: "8 4" }}
+            />
+          )}
+        </MapContainer>
+      </div>
+      <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
+        {hasOrigin   && <LegendDot color="bg-green-500"  label="Origin" />}
+        {hasDest     && <LegendDot color="bg-red-500"    label="Destination" />}
+        {hasLastPing && (
+          <LegendDot color="bg-yellow-400" label={`Last Location (${formatDate(trip.lastPing!.recordedAt, "time")})`} />
+        )}
+        {!hasOrigin && !hasDest && !hasLastPing && (
+          <span className="italic">
+            No location data yet — coords are populated when the trip is created or updated.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

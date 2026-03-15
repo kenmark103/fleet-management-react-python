@@ -46,6 +46,7 @@ import {
   formatDate,
   isExpired as checkExpired,
   isExpiringSoon as checkExpiringSoon,
+  getStaticUrl,
 } from "../../../lib/utils";
 import type { Driver } from "../../../types/driver";
 
@@ -123,7 +124,7 @@ function DriverAvatar({ driver }: { driver: Driver }) {
   return (
     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold text-muted-foreground overflow-hidden">
       {driver.avatarUrl ? (
-        <img src={driver.avatarUrl} alt="" className="h-full w-full object-cover" />
+        <img  src={getStaticUrl(driver.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover" />
       ) : (
         `${driver.firstName[0]}${driver.lastName[0]}`
       )}

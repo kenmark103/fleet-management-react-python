@@ -42,7 +42,7 @@ import {
   CreditCard,
   AlertTriangle,
 } from "lucide-react";
-import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon } from "../../../../lib/utils";
+import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon, getStaticUrl } from "../../../../lib/utils";
 
 export const Route = createFileRoute("/_auth/drivers/$driverId/")({
   component: DriverDetailPage,
@@ -311,7 +311,7 @@ function DriverDetailPage() {
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground overflow-hidden shrink-0">
             {driver.avatarUrl ? (
-              <img src={driver.avatarUrl} alt="" className="h-full w-full object-cover" />
+              <img  src={getStaticUrl(driver.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover" />
             ) : (
               `${driver.firstName[0]}${driver.lastName[0]}`
             )}

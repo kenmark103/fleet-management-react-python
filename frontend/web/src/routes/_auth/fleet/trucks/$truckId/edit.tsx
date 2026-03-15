@@ -47,6 +47,7 @@ function EditTruck() {
         }
       />
       <TruckForm
+        truckId={truckId}
         defaultValues={truck}
         isLoading={updateTruck.isPending}
         onCancel={() => navigate({ to: "/fleet/trucks/$truckId", params: { truckId } })}

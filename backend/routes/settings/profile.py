@@ -27,16 +27,14 @@ from db.models import User
 from auth.deps import get_current_active_user
 from schemas.common import ApiResponse
 from schemas.users import ChangePasswordRequest, ProfileUpdate, UserResponse
+from services.storage import delete_image, upload_image
 
 router = APIRouter(prefix="/settings/profile", tags=["settings:profile"])
 
 # ── Avatar storage ────────────────────────────────────────────────────────────
-AVATAR_DIR = "static/avatars"
 AVATAR_URL_PREFIX = "/static/avatars"
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_AVATAR_BYTES = 5 * 1024 * 1024   # 5 MB
-
-os.makedirs(AVATAR_DIR, exist_ok=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,50 +76,20 @@ async def update_profile(
 # ─────────────────────────────────────────────────────────────────────────────
 # POST  /settings/profile/avatar
 # ─────────────────────────────────────────────────────────────────────────────
-
 @router.post("/avatar", response_model=ApiResponse[UserResponse])
 async def upload_avatar(
-    db: DB,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_active_user),
+        db: DB,
+        file: UploadFile = File(...),
+        current_user: User = Depends(get_current_active_user),
 ):
-    # Validate MIME type
-    if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            422,
-            f"Unsupported file type '{file.content_type}'. "
-            "Please upload a JPEG, PNG, or WebP image.",
-        )
+    # Delete old image (no-op if None or Cloudinary handles versioning)
+    await delete_image(current_user.avatar_url)
 
-    # Validate file size (UploadFile.size is set when content-length header present)
-    if file.size and file.size > MAX_AVATAR_BYTES:
-        raise HTTPException(413, "Avatar must be under 5 MB")
-
-    # Build unique filename — keyed by user ID so old avatars are easy to GC
-    ext = (file.filename or "avatar").rsplit(".", 1)[-1].lower()
-    if ext not in ("jpg", "jpeg", "png", "webp"):
-        ext = "jpg"
-    filename = f"{current_user.id}_{uuid.uuid4().hex[:10]}.{ext}"
-    filepath = os.path.join(AVATAR_DIR, filename)
-
-    # Write to disk (swap this block for S3/GCS put_object if needed)
-    try:
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except OSError as exc:
-        raise HTTPException(500, f"Failed to save avatar: {exc}") from exc
-
-    # Optionally clean up previous avatar file
-    if current_user.avatar_url:
-        old_filename = current_user.avatar_url.rsplit("/", 1)[-1]
-        old_path = os.path.join(AVATAR_DIR, old_filename)
-        if os.path.isfile(old_path):
-            try:
-                os.remove(old_path)
-            except OSError:
-                pass   # Non-fatal
-
-    current_user.avatar_url = f"{AVATAR_URL_PREFIX}/{filename}"
+    current_user.avatar_url = await upload_image(
+        file=file,
+        folder="avatars",
+        record_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(current_user)
 
@@ -129,7 +97,6 @@ async def upload_avatar(
         data=UserResponse.model_validate(current_user),
         message="Avatar updated successfully",
     )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PATCH  /settings/profile/change-password

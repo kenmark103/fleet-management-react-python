@@ -1,9 +1,6 @@
 /**
  * routes/_auth/fleet/trucks/new.tsx
  * Route: /fleet/trucks/new
- *
- * UI fixes:
- *   - PageHeader has Truck icon + Back button (matches app pattern)
  */
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -45,8 +42,12 @@ function NewTruck() {
         isLoading={createTruck.isPending}
         onCancel={() => navigate({ to: "/fleet/trucks" })}
         onSubmit={async (values) => {
-          await createTruck.mutateAsync(values);
-          navigate({ to: "/fleet/trucks" });
+          const result = await createTruck.mutateAsync(values);
+          // Redirect to edit so user can immediately upload a vehicle photo
+          navigate({
+            to: "/fleet/trucks/$truckId/edit",
+            params: { truckId: result.id },
+          });
         }}
       />
     </div>

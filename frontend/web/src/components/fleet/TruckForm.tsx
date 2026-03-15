@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Info, Camera, Loader2 } from "lucide-react";
@@ -25,7 +25,7 @@ import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import type { Truck } from "../../types/fleet";
 import type { TruckPayload } from "../../lib/fleet-api";
-import type { Path } from "react-hook-form";
+import { getStaticUrl } from "../../lib/utils";
 import {
   getTruckMakeNames,
   getTruckModels,
@@ -83,7 +83,7 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel, onImag
 
   // Image upload state
   const imgInputRef      = useRef<HTMLInputElement>(null);
-  const [imgPreview,     setImgPreview]     = useState<string | null>(defaultValues?.imageUrl ?? null);
+  const [imgPreview,     setImgPreview]     = useState<string | null>(getStaticUrl(defaultValues?.imageUrl) ?? null);
   const [imgUploading,   setImgUploading]   = useState(false);
   const [imgError,       setImgError]       = useState<string | null>(null);
 
@@ -191,7 +191,7 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel, onImag
       onImageUploaded?.(url);
     } catch (e: any) {
       setImgError(e.message ?? "Upload failed");
-      setImgPreview(defaultValues?.imageUrl ?? null);
+      setImgPreview(getStaticUrl(defaultValues?.imageUrl) ?? null);
     } finally {
       setImgUploading(false);
     }

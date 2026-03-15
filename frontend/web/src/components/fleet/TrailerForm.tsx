@@ -33,6 +33,7 @@ import {
   isKnownTrailerModel,
   type CatalogTrailerModel,
 } from "../../lib/vehicle-data";
+import { getStaticUrl } from "../../lib/utils";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel, onIm
 
   // Image upload state
   const imgInputRef    = useRef<HTMLInputElement>(null);
-  const [imgPreview,   setImgPreview]   = useState<string | null>(defaultValues?.imageUrl ?? null);
+  const [imgPreview,   setImgPreview]   = useState<string | null>(getStaticUrl(defaultValues?.imageUrl) ?? null);
   const [imgUploading, setImgUploading] = useState(false);
   const [imgError,     setImgError]     = useState<string | null>(null);
 
@@ -114,7 +115,7 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel, onIm
       onImageUploaded?.(url);
     } catch (e: any) {
       setImgError(e.message ?? "Upload failed");
-      setImgPreview(defaultValues?.imageUrl ?? null);
+      setImgPreview(getStaticUrl(defaultValues?.imageUrl) ?? null);
     } finally {
       setImgUploading(false);
     }

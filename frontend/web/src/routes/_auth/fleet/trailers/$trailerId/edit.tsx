@@ -29,6 +29,7 @@ function EditTrailer() {
         subtitle={`${trailer.year} ${trailer.make} ${trailer.model}`}
       />
       <TrailerForm
+        trailerId = {trailerId}
         defaultValues={trailer}
         isLoading={updateTrailer.isPending}
         onCancel={() => navigate({ to: "/fleet/trailers/$trailerId", params: { trailerId } })}

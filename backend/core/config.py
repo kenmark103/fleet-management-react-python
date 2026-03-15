@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # ── Misc ──────────────────────────────────────────────────────────────────
     NGROK_AUTHTOKEN: str | None = None
 
+    # ── Storage ──────────────────────────────────────────────────────────────────
+    CLOUDINARY_URL: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=(".env",),
         extra="ignore",
