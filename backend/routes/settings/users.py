@@ -13,10 +13,11 @@ ADMIN-only user management endpoints:
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 
 from auth.security import hash_password
+from auth.tokens import generate_email_verification_token
 from db.dbconfig import DB
 from db.models import User
 from auth.deps import require_admin
@@ -28,6 +29,8 @@ from schemas.users import (
     UserResponse,
     UserUpdate,
 )
+from services.email import send_invite
+import os
 
 router = APIRouter(prefix="/settings/users", tags=["settings:users"])
 
@@ -94,9 +97,10 @@ async def list_users(
 
 @router.post("", response_model=ApiResponse[UserResponse], status_code=201)
 async def create_user(
-    body: UserCreate,
-    db: DB,
-    current_user: User = Depends(require_admin),
+    body:             UserCreate,
+    db:               DB,
+    background_tasks: BackgroundTasks,
+    current_user:     User = Depends(require_admin),
 ):
     # Enforce email uniqueness
     existing = (
@@ -105,23 +109,39 @@ async def create_user(
     if existing:
         raise HTTPException(409, "A user with this email already exists")
 
+    # Generate invite token — stored in email_verification_token column
+    invite_token = generate_email_verification_token({"email": body.email})
+
     user = User(
         first_name=body.first_name,
         last_name=body.last_name,
         email=body.email,
         role=body.role.value,
         phone=body.phone,
-        password=hash_password(body.temp_password),
+        password=None,             # user sets their own password via invite
+        status="pending",          # flips to active when invite is accepted
         is_active=True,
-        is_verified=True,   # Admin-created users bypass email verification
+        is_verified=False,
+        email_verification_token=invite_token,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
+    # Send invite email in background — never blocks the response
+    frontend_url = os.getenv("FRONTEND_URL", "")
+    invite_link  = f"{frontend_url}/accept-invite?token={invite_token}"
+    background_tasks.add_task(
+        send_invite,
+        to        = user.email,
+        full_name = f"{user.first_name} {user.last_name}",
+        role      = user.role,
+        invite_link = invite_link,
+    )
+
     return ApiResponse[UserResponse](
         data=UserResponse.model_validate(user),
-        message=f"User {user.first_name} {user.last_name} created successfully",
+        message=f"Invite sent to {user.email}",
     )
 
 

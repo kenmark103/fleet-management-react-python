@@ -20,6 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Notification, User, Driver, Truck, Trip, WorkOrder
 
+# ── Email (uncomment when ready to send emails in production) ─────────────────
+# from services.email import (
+#     send_work_order_assigned,
+#     send_document_expiry,
+# )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CORE CREATE HELPER
@@ -158,6 +164,19 @@ async def notify_work_order_assigned(db: AsyncSession, work_order: WorkOrder) ->
         action_url=f"/maintenance/work-orders/{work_order.id}",
     )
 
+    # ── Email notification (uncomment when ready) ─────────────────────────────
+    # import os
+    # await send_work_order_assigned(
+    #     to             = mechanic.email,
+    #     mechanic_name  = f"{mechanic.first_name} {mechanic.last_name}",
+    #     wo_number      = work_order.work_order_number,
+    #     wo_title       = work_order.title,
+    #     truck_plate    = truck_label,
+    #     priority       = work_order.priority,
+    #     scheduled_date = work_order.scheduled_date.strftime("%d %b %Y"),
+    #     wo_url         = f"{os.getenv('FRONTEND_URL', '')}/maintenance/work-orders/{work_order.id}",
+    # )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FUEL / EXPENSES
@@ -258,6 +277,17 @@ async def notify_document_expiring(
             action_url=action_url,
         )
     await db.commit()
+
+    # ── Email notification (uncomment when ready) ─────────────────────────────
+    # recipient_emails = [u.email for u in recipients]
+    # if recipient_emails:
+    #     await send_document_expiry(
+    #         to           = recipient_emails,
+    #         entity_label = entity_label,
+    #         expiry_date  = expiry_date.strftime("%d %b %Y"),
+    #         days_left    = days_left,
+    #         action_url   = f"{os.getenv('FRONTEND_URL', '')}{action_url}",
+    #     )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

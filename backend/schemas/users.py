@@ -1,14 +1,12 @@
 """
-schemas/user.py
-Fleet Management System — Phase 8
+schemas/users.py
+Fleet Management System — Phase 8 → Phase 10 (invite flow)
 
-User management schemas:
-  - UserResponse / UserListItem     ← GET endpoints
-  - UserCreate                      ← POST /settings/users  (admin)
-  - UserUpdate                      ← PATCH /settings/users/{id}  (admin)
-  - AdminPasswordReset              ← POST /settings/users/{id}/reset-password
-  - ProfileUpdate                   ← PATCH /settings/profile  (own)
-  - ChangePasswordRequest           ← PATCH /settings/profile/change-password
+Changes:
+  - UserCreate: removed temp_password — admin no longer sets passwords
+  - UserResponse / UserListItem: added status field
+  - AcceptInviteRequest: new — used by POST /auth/accept-invite
+  - InviteInfoResponse: new — used by GET /auth/invite-info
 """
 
 from __future__ import annotations
@@ -17,7 +15,7 @@ from typing import Optional
 
 from pydantic import EmailStr, field_validator, model_validator
 
-from schemas.common import CamelBase, UserRole
+from schemas.common import CamelBase, UserRole, UserStatus
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -27,17 +25,18 @@ from schemas.common import CamelBase, UserRole
 class UserResponse(CamelBase):
     """Full user object — returned for single-item endpoints."""
     id:            str
-    first_name:    str        # → firstName
-    last_name:     str        # → lastName
+    first_name:    str
+    last_name:     str
     email:         str
     role:          UserRole
-    is_active:     bool       # → isActive
-    is_verified:   bool       # → isVerified
-    phone:         Optional[str] = None
-    avatar_url:    Optional[str] = None  # → avatarUrl
-    last_login_at: Optional[datetime] = None  # → lastLoginAt
-    created_at:    datetime   # → createdAt
-    updated_at:    datetime   # → updatedAt
+    status:        UserStatus         # active | inactive | pending
+    is_active:     bool
+    is_verified:   bool
+    phone:         Optional[str]      = None
+    avatar_url:    Optional[str]      = None
+    last_login_at: Optional[datetime] = None
+    created_at:    datetime
+    updated_at:    datetime
 
 
 class UserListItem(CamelBase):
@@ -47,9 +46,10 @@ class UserListItem(CamelBase):
     last_name:     str
     email:         str
     role:          UserRole
+    status:        UserStatus
     is_active:     bool
-    phone:         Optional[str] = None
-    avatar_url:    Optional[str] = None
+    phone:         Optional[str]      = None
+    avatar_url:    Optional[str]      = None
     last_login_at: Optional[datetime] = None
     created_at:    datetime
 
@@ -60,16 +60,14 @@ class UserListItem(CamelBase):
 
 class UserCreate(CamelBase):
     """
-    Admin creates a new user.
-    - temp_password: admin sets a known password; user changes it on first login.
-    - is_verified defaults True — admin-created accounts skip email verification.
+    Admin invites a new user.
+    No password — user sets their own via the invite link.
     """
-    first_name:    str
-    last_name:     str
-    email:         EmailStr
-    role:          UserRole
-    phone:         Optional[str] = None
-    temp_password: str   # → tempPassword
+    first_name: str
+    last_name:  str
+    email:      EmailStr
+    role:       UserRole
+    phone:      Optional[str] = None
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -78,37 +76,20 @@ class UserCreate(CamelBase):
             raise ValueError("Field cannot be blank")
         return v.strip()
 
-    @field_validator("temp_password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
-
-    @field_validator("role")
-    @classmethod
-    def no_driver_role(cls, v: str) -> str:
-        if v == "DRIVER":
-            raise ValueError("DRIVER role must be created via /drivers endpoint")
-        return v
-
 
 class UserUpdate(CamelBase):
-    """
-    Admin patches an existing user.
-    All fields optional — only supplied fields are updated.
-    """
-    first_name: Optional[str] = None
-    last_name:  Optional[str] = None
+    """Admin patches an existing user. All fields optional."""
+    first_name: Optional[str]      = None
+    last_name:  Optional[str]      = None
     email:      Optional[EmailStr] = None
     role:       Optional[UserRole] = None
-    phone:      Optional[str] = None
-    is_active:  Optional[bool] = None
+    phone:      Optional[str]      = None
+    is_active:  Optional[bool]     = None
 
 
 class AdminPasswordReset(CamelBase):
     """Admin resets a user's password — no current password required."""
-    new_password: str   # → newPassword
+    new_password: str
 
     @field_validator("new_password")
     @classmethod
@@ -123,10 +104,7 @@ class AdminPasswordReset(CamelBase):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ProfileUpdate(CamelBase):
-    """
-    User updates their own profile.
-    Email and role are intentionally excluded — only admin can change those.
-    """
+    """User updates their own profile. Email and role are admin-only."""
     first_name: Optional[str] = None
     last_name:  Optional[str] = None
     phone:      Optional[str] = None
@@ -140,8 +118,8 @@ class ProfileUpdate(CamelBase):
 
 class ChangePasswordRequest(CamelBase):
     """User changes their own password — current password required."""
-    current_password: str   # → currentPassword
-    new_password:     str   # → newPassword
+    current_password: str
+    new_password:     str
 
     @field_validator("new_password")
     @classmethod
@@ -149,3 +127,39 @@ class ChangePasswordRequest(CamelBase):
         if len(v) < 8:
             raise ValueError("New password must be at least 8 characters")
         return v
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INVITE FLOW
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AcceptInviteRequest(CamelBase):
+    """
+    POST /auth/accept-invite
+    User sets their password (and optionally updates name/phone)
+    using the token from their invite email.
+    """
+    token:      str
+    password:   str
+    first_name: Optional[str] = None   # user can confirm/correct their name
+    last_name:  Optional[str] = None
+    phone:      Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+class InviteInfoResponse(CamelBase):
+    """
+    GET /auth/invite-info?token=xxx
+    Returns enough info to pre-fill the accept-invite form.
+    Never returns sensitive data — token is already validated.
+    """
+    first_name: str
+    last_name:  str
+    email:      str
+    role:       str

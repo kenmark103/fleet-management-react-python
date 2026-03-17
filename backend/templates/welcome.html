@@ -1,17 +1,98 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<body style="font-family: Arial, serif; padding: 20px;">
-  <div style="max-width: 600px; margin: auto;">
-    <h2>Welcome to Our Platform 🎉</h2>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to FleetMS</title>
+</head>
+<body style="margin:0;padding:0;background:#e7f3ec;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(23,58,64,0.10);">
 
-    <p>Hello {{ username }},</p>
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#173a40 0%,#2f6a4a 100%);padding:36px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="display:inline-block;background:rgba(255,255,255,0.15);
+                                 border-radius:8px;padding:8px 14px;
+                                 color:#ffffff;font-size:18px;font-weight:700;
+                                 letter-spacing:-0.3px;">
+                      🚛 FleetMS
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <p>We’re excited to have you on board! Your account has been created successfully.</p>
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#173a40;">
+                Welcome aboard, {{ full_name.split()[0] }}! 🎉
+              </h1>
+              <p style="margin:0 0 24px;font-size:15px;color:#416166;line-height:1.6;">
+                Your FleetMS account has been created by an administrator.
+                You're set up as a <strong style="color:#2f6a4a;">{{ role }}</strong>.
+              </p>
 
-    <p>Feel free to explore all features and let us know if you need help.</p>
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f3faf5;border:1px solid #d1e8d5;border-radius:8px;
+                            margin-bottom:28px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 4px;font-size:12px;font-weight:600;
+                               text-transform:uppercase;letter-spacing:0.08em;color:#2f6a4a;">
+                      Your account
+                    </p>
+                    <p style="margin:0;font-size:15px;color:#173a40;font-weight:500;">
+                      {{ full_name }}
+                    </p>
+                    <p style="margin:4px 0 0;font-size:13px;color:#416166;">
+                      Role: {{ role }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-    <p>— The Team</p>
-  </div>
+              <p style="margin:0 0 24px;font-size:14px;color:#416166;line-height:1.6;">
+                Click the button below to log in and get started. You'll be prompted to
+                set your own password on first login.
+              </p>
+
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:8px;background:linear-gradient(135deg,#173a40,#2f6a4a);">
+                    <a href="{{ login_url }}"
+                       style="display:inline-block;padding:14px 32px;
+                              color:#ffffff;font-size:15px;font-weight:600;
+                              text-decoration:none;letter-spacing:-0.1px;">
+                      Log in to FleetMS →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f3faf5;padding:20px 40px;border-top:1px solid #d1e8d5;">
+              <p style="margin:0;font-size:12px;color:#416166;line-height:1.6;">
+                This email was sent because an administrator created an account for you on FleetMS.
+                If you believe this was a mistake, please contact your fleet administrator.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

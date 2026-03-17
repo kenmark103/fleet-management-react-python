@@ -10,7 +10,7 @@ import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { usePermission } from "../../../../hooks/usePermission";
 import { useCreateUser } from "../../../../hooks/useUsers";
 import { UserForm } from "../../../../components/forms/UserForm";
-import type { UserCreatePayload } from "../../../../types/user";
+import type { UserCreatePayload, UserUpdatePayload } from "../../../../types/user";
 
 export const Route = createFileRoute("/_auth/settings/users/new")({
   component: NewUserPage,
@@ -30,10 +30,10 @@ function NewUserPage() {
     );
   }
 
-  const handleSubmit = async (data: UserCreatePayload) => {
-    await createUser.mutateAsync(data);
-    navigate({ to: "/settings/users" });
-  };
+  const handleSubmit = async (data: UserCreatePayload | UserUpdatePayload) => {
+  await createUser.mutateAsync(data as UserCreatePayload);
+  navigate({ to: "/settings/users" });
+};
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -46,9 +46,9 @@ function NewUserPage() {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold">Add New User</h1>
+          <h1 className="text-xl font-semibold">Invite New User</h1>
           <p className="text-sm text-muted-foreground">
-            Create a system account and assign a role
+            An invite email will be sent — no password needed from you
           </p>
         </div>
       </div>
@@ -56,7 +56,7 @@ function NewUserPage() {
       {/* Form card */}
       <div className="rounded-xl border bg-card p-6">
         <UserForm
-          onSubmit={handleSubmit as any}
+          onSubmit={handleSubmit}
           isLoading={createUser.isPending}
         />
       </div>

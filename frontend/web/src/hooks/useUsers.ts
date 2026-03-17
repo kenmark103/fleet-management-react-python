@@ -83,7 +83,8 @@ export function useCreateUser() {
       api.post<ApiResponse<User>>('/api/v1/settings/users', payload).then(r => r.data),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: userKeys.all })
-      toast.success(`${res.data.firstName} ${res.data.lastName} created successfully`)
+      // Backend now returns "Invite sent to {email}" as the message
+      toast.success(res.message ?? `Invite sent to ${res.data.email}`)
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -151,5 +152,21 @@ export function useAdminResetPassword(userId: string) {
       api.post<ApiResponse<object>>(`/api/v1/settings/users/${userId}/reset-password`, payload).then(r => r.data),
     onSuccess: () => toast.success('Password reset successfully'),
     onError:   (e: Error) => toast.error(e.message),
+  })
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// RESEND INVITE  (for pending users who haven't accepted yet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function useResendInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ApiResponse<User>>(`/api/v1/settings/users/${id}/resend-invite`).then(r => r.data),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: userKeys.all })
+      toast.success(`Invite resent to ${res.data.email}`)
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 }

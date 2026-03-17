@@ -47,6 +47,10 @@ class UserRole(str, Enum):
     MECHANIC   = "MECHANIC"
     FINANCE    = "FINANCE"
 
+class UserStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
 
 class TruckStatus(str, Enum):
     ACTIVE             = "active"

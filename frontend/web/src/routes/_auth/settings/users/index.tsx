@@ -16,7 +16,7 @@ import {
 import { ROLE_COLORS, ROLE_SHORT_LABELS, USER_ROLES } from "../../../../lib/constants";
 import type { UserRole } from "../../../../lib/constants";
 import type { UserListItem } from "../../../../types/user";
-import { formatDate, getInitials } from "../../../../lib/utils";
+import { formatDate, getInitials, getStaticUrl } from "../../../../lib/utils";
 import { usePermission } from "../../../../hooks/usePermission";
 import { useAuth } from "../../../../lib/auth-context";
 import {
@@ -56,13 +56,11 @@ type ActiveFilter = "all" | "active" | "inactive";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function UserAvatar({ user }: { user: Pick<UserListItem, "firstName" | "lastName" | "avatarUrl"> }) {
-  if (user.avatarUrl) {
+  const src = getStaticUrl(user.avatarUrl);
+  if (src) {
     return (
-      <img
-        src={user.avatarUrl}
-        alt={`${user.firstName} ${user.lastName}`}
-        className="h-8 w-8 rounded-full object-cover ring-2 ring-background"
-      />
+      <img src={src} alt={`${user.firstName} ${user.lastName}`}
+        className="h-8 w-8 rounded-full object-cover ring-2 ring-background" />
     );
   }
   return (
@@ -80,11 +78,19 @@ function RolePill({ role }: { role: UserRole }) {
   );
 }
 
-function StatusDot({ isActive }: { isActive: boolean }) {
+function UserStatusBadge({ user }: { user: Pick<UserListItem, "isActive" | "status"> }) {
+  if (user.status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+        Pending invite
+      </span>
+    );
+  }
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${isActive ? "text-emerald-600" : "text-muted-foreground"}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
-      {isActive ? "Active" : "Inactive"}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${user.isActive ? "text-emerald-600" : "text-muted-foreground"}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${user.isActive ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
+      {user.isActive ? "Active" : "Inactive"}
     </span>
   );
 }
@@ -463,7 +469,7 @@ function UsersPage() {
                         <RolePill role={user.role} />
                       </TableCell>
                       <TableCell>
-                        <StatusDot isActive={user.isActive} />
+                        <UserStatusBadge user={user} />
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {user.lastLoginAt

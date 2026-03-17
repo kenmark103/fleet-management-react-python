@@ -238,7 +238,9 @@ export function getInitials(name: string | null | undefined): string {
 
 export function getStaticUrl(path: string | null | undefined): string | null {
   if (!path) return null;
+  // Already a full URL (Cloudinary, S3 etc.) — return as-is
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  // Relative /static/ path — prepend backend base URL
   const base = import.meta.env.VITE_API_URL ?? "";
-  // Avoid double-slashing if base already has no trailing slash
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }

@@ -1,24 +1,20 @@
 /**
  * types/user.ts
- * Fleet Management System — Phase 8
- *
- * Mirrors schemas/user.py (camelCase output via CamelBase).
- * All date fields come as ISO strings from the API.
+ * Fleet Management System
  */
 
 import type { UserRole } from "../lib/constants";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// READ SHAPES  (API responses)
-// ─────────────────────────────────────────────────────────────────────────────
+export type UserStatus = "active" | "inactive" | "pending";
 
-/** Full user object — single-item endpoints */
+/** Full user object */
 export interface User {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   isActive: boolean;
   isVerified: boolean;
   phone: string | null;
@@ -35,6 +31,7 @@ export interface UserListItem {
   lastName: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   isActive: boolean;
   phone: string | null;
   avatarUrl: string | null;
@@ -42,18 +39,13 @@ export interface UserListItem {
   createdAt: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WRITE SHAPES  (request payloads)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** POST /settings/users — admin creates a new user */
+/** POST /settings/users — admin invites a new user (no password) */
 export interface UserCreatePayload {
   firstName: string;
   lastName: string;
   email: string;
   role: UserRole;
   phone?: string;
-  tempPassword: string;
 }
 
 /** PATCH /settings/users/{id} — admin edits user */
@@ -66,27 +58,40 @@ export interface UserUpdatePayload {
   isActive?: boolean;
 }
 
-/** POST /settings/users/{id}/reset-password — admin resets password */
+/** POST /settings/users/{id}/reset-password */
 export interface AdminPasswordResetPayload {
   newPassword: string;
 }
 
-/** PATCH /settings/profile — own profile update */
+/** PATCH /settings/profile */
 export interface ProfileUpdatePayload {
   firstName?: string;
   lastName?: string;
   phone?: string;
 }
 
-/** PATCH /settings/profile/change-password — own password change */
+/** PATCH /settings/profile/change-password */
 export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUERY PARAMS
-// ─────────────────────────────────────────────────────────────────────────────
+/** POST /auth/accept-invite */
+export interface AcceptInvitePayload {
+  token: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
+/** GET /auth/invite-info */
+export interface InviteInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+}
 
 export interface UserListParams {
   q?: string;
@@ -96,11 +101,6 @@ export interface UserListParams {
   pageSize?: number;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Returns "First Last" for any user shape */
 export function fullName(user: Pick<User, "firstName" | "lastName">): string {
   return `${user.firstName} ${user.lastName}`.trim();
 }

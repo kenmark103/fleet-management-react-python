@@ -15,13 +15,13 @@ from auth.tokens import (
     generate_reset_password_token,
 )
 from auth.email_utils import send_password_reset_email, send_verification_email
-from auth.deps import get_current_user   # your existing dependency
+from auth.deps import get_current_user
 from core.config import get_settings
 from core.rate_limiter import limiter
 from db.dbconfig import DB
 from db.models import User
 from schemas.auth import LoginRequest, RegisterRequest, ForgetPasswordRequest, PasswordResetConfirm, LoginResponse
-from schemas.users import UserResponse
+from schemas.users import UserResponse, AcceptInviteRequest, InviteInfoResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -55,6 +55,11 @@ async def login(request: Request , response: Response, login_request: LoginReque
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is deactivated. Contact your administrator.")
+    if getattr(user, "status", "active") == "pending":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is pending. Please accept the invite sent to your email before logging in.",
+        )
 
     user.last_login_at = datetime.now()
     await db.commit()
@@ -147,3 +152,68 @@ async def reset_password(payload: PasswordResetConfirm, db: DB):
     user.reset_password_token = None
     await db.commit()
     return {"message": "Password reset successful — you can now log in"}
+
+# ─── GET /auth/invite-info ────────────────────────────────────────────────────
+@router.get("/invite-info", response_model=InviteInfoResponse)
+async def invite_info(token: str, db: DB):
+    """
+    Validates an invite token and returns the user's pre-filled info
+    so the accept-invite page can display their name and email.
+    Does NOT mark the token as used — that happens on accept.
+    """
+    result = await db.execute(
+        select(User).where(User.email_verification_token == token)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(400, "Invalid or expired invite link.")
+    if getattr(user, "status", "active") != "pending":
+        raise HTTPException(400, "This invite has already been accepted.")
+
+    return InviteInfoResponse(
+        first_name = user.first_name,
+        last_name  = user.last_name,
+        email      = user.email,
+        role       = user.role,
+    )
+
+
+# ─── POST /auth/accept-invite ─────────────────────────────────────────────────
+@router.post("/accept-invite", response_model=UserResponse)
+async def accept_invite(payload: AcceptInviteRequest, db: DB):
+    """
+    Accepts an invite:
+      1. Validates token
+      2. Sets user's password
+      3. Optionally updates name / phone
+      4. Marks user as active + verified
+      5. Clears the invite token
+    """
+    result = await db.execute(
+        select(User).where(User.email_verification_token == payload.token)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(400, "Invalid or expired invite link.")
+    if getattr(user, "status", "active") != "pending":
+        raise HTTPException(400, "This invite has already been accepted.")
+
+    # Set password
+    user.password = hash_password(payload.password)
+
+    # Let user confirm/update their own contact info
+    if payload.first_name and payload.first_name.strip():
+        user.first_name = payload.first_name.strip()
+    if payload.last_name and payload.last_name.strip():
+        user.last_name = payload.last_name.strip()
+    if payload.phone is not None:
+        user.phone = payload.phone.strip() or None
+
+    # Activate the account
+    user.status      = "active"
+    user.is_verified = True
+    user.email_verification_token = None
+
+    await db.commit()
+    await db.refresh(user)
+    return UserResponse.model_validate(user)

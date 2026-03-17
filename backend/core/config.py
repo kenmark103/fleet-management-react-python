@@ -76,9 +76,9 @@ class Settings(BaseSettings):
     # ── Email ─────────────────────────────────────────────────────────────────
     MAIL_USERNAME: str | None = None
     MAIL_PASSWORD: str | None = None
-    MAIL_FROM: str | None = None
+    MAIL_FROM: str | None = MAIL_USERNAME
     MAIL_PORT: int | None = 587
-    MAIL_SERVER: str | None = None
+    MAIL_SERVER: str | None = "smtp.gmail.com"
     MAIL_FROM_NAME: str | None = "Fleet Management System"
 
     # ── Misc ──────────────────────────────────────────────────────────────────

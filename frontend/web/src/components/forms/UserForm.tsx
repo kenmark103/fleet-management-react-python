@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
-import { Eye, EyeOff, Loader2, AlertTriangle, Info, UserX, UserCheck } from "lucide-react";
+import { Loader2, AlertTriangle, Info, UserX, UserCheck, Mail } from "lucide-react";
 import { Button }   from "../ui/button";
 import { Input }    from "../ui/input";
 import { Label }    from "../ui/label";
@@ -86,66 +86,47 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
   const navigate   = useNavigate();
   const isEditMode = Boolean(initial);
 
-  // ── Form state ─────────────────────────────────────────────────────────────
-  const [firstName,       setFirstName]       = useState(initial?.firstName       ?? "");
-  const [lastName,        setLastName]        = useState(initial?.lastName        ?? "");
-  const [email,           setEmail]           = useState(initial?.email           ?? "");
-  const [role,            setRole]            = useState<UserRole>(initial?.role  ?? "DRIVER");
-  const [phone,           setPhone]           = useState(initial?.phone           ?? "");
-  const [isActive,        setIsActive]        = useState(initial?.isActive        ?? true);
-  const [tempPassword,    setTempPassword]    = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword,    setShowPassword]    = useState(false);
+  const [firstName,  setFirstName]  = useState(initial?.firstName ?? "");
+  const [lastName,   setLastName]   = useState(initial?.lastName  ?? "");
+  const [email,      setEmail]      = useState(initial?.email     ?? "");
+  const [role,       setRole]       = useState<UserRole>(initial?.role ?? "DRIVER");
+  const [phone,      setPhone]      = useState(initial?.phone     ?? "");
+  const [isActive,   setIsActive]   = useState(initial?.isActive  ?? true);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // ── Validation ─────────────────────────────────────────────────────────────
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
-
     if (!firstName.trim()) errs.firstName = "Required";
     if (!lastName.trim())  errs.lastName  = "Required";
     if (!email.trim())     errs.email     = "Required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       errs.email = "Enter a valid email address";
-
-    if (!isEditMode) {
-      if (!tempPassword)            errs.tempPassword = "Required";
-      else if (tempPassword.length < 8)
-        errs.tempPassword = "Minimum 8 characters";
-      if (confirmPassword !== tempPassword)
-        errs.confirmPassword = "Passwords do not match";
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     if (isEditMode) {
-      const payload: UserUpdatePayload = {
+      await onSubmit({
         firstName: firstName.trim(),
         lastName:  lastName.trim(),
         email:     email.trim(),
         role,
         phone:     phone.trim() || undefined,
         isActive,
-      };
-      await onSubmit(payload);
+      } as UserUpdatePayload);
     } else {
-      const payload: UserCreatePayload = {
-        firstName:    firstName.trim(),
-        lastName:     lastName.trim(),
-        email:        email.trim(),
+      await onSubmit({
+        firstName: firstName.trim(),
+        lastName:  lastName.trim(),
+        email:     email.trim(),
         role,
-        phone:        phone.trim() || undefined,
-        tempPassword,
-      };
-      await onSubmit(payload);
+        phone:     phone.trim() || undefined,
+      } as UserCreatePayload);
     }
   };
 
@@ -264,50 +245,22 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
         )}
       </section>
 
-      {/* ── PASSWORD  (create mode only) ─────────────────────────────────── */}
+      {/* ── INVITE NOTICE  (create mode only) ───────────────────────────── */}
       {!isEditMode && (
-        <section className="space-y-4">
+        <section className="space-y-3">
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Temporary Password
+              Account Setup
             </h3>
             <Separator className="mt-2" />
           </div>
-          <p className="text-sm text-muted-foreground">
-            Set a temporary password. The user should change it on their first login.
-          </p>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Password" required error={errors.tempPassword}>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={tempPassword}
-                  onChange={(e) => setTempPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  className={`pr-10 ${errors.tempPassword ? "border-destructive" : ""}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword
-                    ? <EyeOff className="h-4 w-4" />
-                    : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </Field>
-
-            <Field label="Confirm Password" required error={errors.confirmPassword}>
-              <Input
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat password"
-                className={errors.confirmPassword ? "border-destructive" : ""}
-              />
-            </Field>
+          <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-blue-800">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+            <p className="text-sm leading-relaxed">
+              An invite email will be sent to <strong>{email || "the user's email"}</strong>.
+              They'll set their own password when they accept the invite.
+              The link expires in <strong>7 days</strong>.
+            </p>
           </div>
         </section>
       )}

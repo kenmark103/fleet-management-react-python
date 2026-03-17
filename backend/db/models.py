@@ -42,6 +42,11 @@ UserRoleEnum = SAEnum(
     name="userrole"
 )
 
+UserStatusEnum = SAEnum(
+    "active", "inactive", "pending",
+    name="userstatus"
+)
+
 TruckStatusEnum = SAEnum(
     "active", "inactive", "in-progress", "under-maintenance",
     name="truckstatus"
@@ -117,6 +122,7 @@ class User(Base):
     email:         Mapped[str]            = mapped_column(String(120), unique=True, index=True)
     password:      Mapped[Optional[str]]  = mapped_column(String(200), nullable=True)
     role:          Mapped[str]            = mapped_column(UserRoleEnum, default="DRIVER")
+    status:        Mapped[str]            = mapped_column(UserStatusEnum, default="active")
     is_active:     Mapped[bool]           = mapped_column(Boolean, default=True)
     is_verified:   Mapped[bool]           = mapped_column(Boolean, default=False)
     phone:         Mapped[Optional[str]]  = mapped_column(String(30), nullable=True)
