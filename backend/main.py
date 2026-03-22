@@ -65,12 +65,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ensure static upload directories exist on every environment (local, Docker, Render).
-for _dir in ("static", "static/avatars", "static/trucks", "static/trailers"):
-    os.makedirs(_dir, exist_ok=True)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 #routing
 app.include_router(auth_router)
 app.include_router(oauth_router)
@@ -83,5 +77,13 @@ app.include_router(trips_router, prefix="/api/v1")
 app.include_router(maintenance_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(vehicle_router, prefix="/api/v1")
+
+# Ensure static upload directories exist on every environment (local, Docker, Render).
+for _dir in ("static", "static/avatars", "static/trucks", "static/trailers"):
+    os.makedirs(_dir, exist_ok=True)
+
+# Move the static mount here after the routers.
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8000)
