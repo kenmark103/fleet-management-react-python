@@ -1,9 +1,14 @@
 """
 tests/integration/test_settings.py
-Fleet Management System — Phase 7
+Fleet Management System
 
-Integration tests for the System Settings API.
-Covers read access and admin-gated updates.
+RBAC summary for /api/v1/settings/system:
+  GET    → any authenticated user (admin, mechanic, dispatcher, finance, driver)
+  PATCH  → ADMIN only → 403 for all other roles
+
+Response fields are camelCase due to CamelBase serialization:
+  org_name     (request) → orgName     (response)
+  org_timezone (request) → orgTimezone (response)
 """
 
 import pytest
@@ -16,11 +21,11 @@ class TestGetSettings:
 
         assert res.status_code == 200
         data = res.json()["data"]
-        # Confirm expected top-level keys are present
-        assert "company_name" in data or "timezone" in data  # at least one setting key
+        assert "orgName" in data
+        assert "orgTimezone" in data
 
     async def test_fetch_settings_as_regular_user(self, auth_client: AsyncClient):
-        """Regular authenticated users should be able to read settings."""
+        """Any authenticated user can read settings regardless of role."""
         res = await auth_client.get("/api/v1/settings/system")
         assert res.status_code == 200
 
@@ -31,55 +36,75 @@ class TestGetSettings:
 
 class TestUpdateSettings:
     async def test_admin_can_update_settings(self, admin_client: AsyncClient):
-        payload = {"company_name": "Fleet Corp Updated", "timezone": "America/Chicago"}
+        payload = {
+            "org_name": "Fleet Corp Updated",
+            "org_timezone": "America/Chicago",
+        }
         res = await admin_client.patch("/api/v1/settings/system", json=payload)
 
         assert res.status_code == 200
         data = res.json()["data"]
-        assert data["company_name"] == "Fleet Corp Updated"
-        assert data["timezone"] == "America/Chicago"
+        assert data["orgName"] == "Fleet Corp Updated"
+        assert data["orgTimezone"] == "America/Chicago"
 
     async def test_update_persists(self, admin_client: AsyncClient):
-        """Change a value, then re-fetch to confirm it was saved."""
+        """Change a value then re-fetch to confirm it was saved."""
         await admin_client.patch(
-            "/api/v1/settings/system", json={"company_name": "Persistence Check"}
+            "/api/v1/settings/system", json={"org_name": "Persistence Check"}
         )
         res = await admin_client.get("/api/v1/settings/system")
-        assert res.json()["data"]["company_name"] == "Persistence Check"
+        assert res.json()["data"]["orgName"] == "Persistence Check"
 
-    async def test_regular_user_cannot_update_settings(self, auth_client: AsyncClient):
-        """Non-admin users must be forbidden from updating settings."""
-        res = await auth_client.patch(
-            "/api/v1/settings/system", json={"company_name": "Hijacked"}
+    async def test_mechanic_cannot_update_settings(self, mechanic_client: AsyncClient):
+        """
+        Non-admin roles must receive 403 when attempting to update settings.
+        Uses mechanic_client (MECHANIC role) as the representative non-admin.
+        """
+        res = await mechanic_client.patch(
+            "/api/v1/settings/system", json={"org_name": "Hijacked"}
         )
         assert res.status_code == 403
 
-    async def test_unauthenticated_cannot_update_settings(self, client: AsyncClient):
+    async def test_dispatcher_cannot_update_settings(
+        self, dispatcher_client: AsyncClient
+    ):
+        res = await dispatcher_client.patch(
+            "/api/v1/settings/system", json={"org_name": "Hijacked"}
+        )
+        assert res.status_code == 403
+
+    async def test_finance_cannot_update_settings(self, finance_client: AsyncClient):
+        res = await finance_client.patch(
+            "/api/v1/settings/system", json={"org_name": "Hijacked"}
+        )
+        assert res.status_code == 403
+
+    async def test_unauthenticated_cannot_update_settings(
+        self, client: AsyncClient
+    ):
         res = await client.patch(
-            "/api/v1/settings/system", json={"company_name": "No token"}
+            "/api/v1/settings/system", json={"org_name": "No token"}
         )
         assert res.status_code == 401
 
     async def test_update_with_invalid_timezone(self, admin_client: AsyncClient):
         res = await admin_client.patch(
-            "/api/v1/settings/system", json={"timezone": "Mars/OlympusMons"}
+            "/api/v1/settings/system", json={"org_timezone": "Mars/OlympusMons"}
         )
         assert res.status_code == 422
 
     async def test_partial_update_preserves_other_fields(
         self, admin_client: AsyncClient
     ):
-        """PATCH should only change supplied fields, not wipe the rest."""
-        # Set a known state
+        """PATCH only changes supplied fields — others must be preserved."""
         await admin_client.patch(
             "/api/v1/settings/system",
-            json={"company_name": "Original Co", "timezone": "UTC"},
+            json={"org_name": "Original Co", "org_timezone": "UTC"},
         )
-        # Partial update
         await admin_client.patch(
-            "/api/v1/settings/system", json={"company_name": "New Co"}
+            "/api/v1/settings/system", json={"org_name": "New Co"}
         )
         res = await admin_client.get("/api/v1/settings/system")
         data = res.json()["data"]
-        assert data["company_name"] == "New Co"
-        assert data["timezone"] == "UTC"  # must be unchanged
+        assert data["orgName"] == "New Co"
+        assert data["orgTimezone"] == "UTC"

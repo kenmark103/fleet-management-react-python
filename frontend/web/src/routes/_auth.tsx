@@ -17,7 +17,7 @@
  */
 
 import { useEffect } from "react";
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/organisms/AppShell";
 import { LoadingSpinner } from "@/components/atoms/LoadingSpinner";
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/_auth")({
 function AuthLayout() {
   const { user, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); 
 
   // ── Auth guard — runs after isLoading settles.
   // While loading we show the spinner; once resolved, if there's no user
@@ -45,7 +46,11 @@ function AuthLayout() {
   // from appearing in browser history.
   useEffect(() => {
     if (!isLoading && !user) {
-      navigate({ to: "/login", replace: true });
+      navigate({ 
+        to: "/login",
+        search: { redirect: location.pathname }, // Preserve the original destination
+        replace: true 
+      });
     }
   }, [isLoading, user, navigate]);
 

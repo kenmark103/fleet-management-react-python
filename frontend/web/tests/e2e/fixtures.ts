@@ -8,16 +8,31 @@
  *   import { test, expect } from "./fixtures";
  *
  * Fixtures provided:
- *   adminPage   — browser page already logged in as admin@fleetapp.com
- *   mechanicPage — browser page already logged in as mechanic@fleetapp.com
- *   driverPage  — browser page already logged in as driver@fleetapp.com
+ *   adminPage      — logged in as ADMIN
+ *   mechanicPage   — logged in as MECHANIC
+ *   driverPage     — logged in as DRIVER
+ *   dispatcherPage — logged in as DISPATCHER  (trips, fleet reads)
+ *   financePage    — logged in as FINANCE     (expenses, fuel reports)
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CREDENTIAL ALIGNMENT
+ * These must stay in sync with SEED dict in tests/conftest.py.
+ * If you change a password there, change it here too.
+ *
+ * FIXES vs previous version:
+ *   1. mechanic.email had a leading \t character → "	rashida@fleetms.com"
+ *      Fixed to: mechanic@fleetms.com (matches conftest.py SEED["mechanic"])
+ *   2. mechanic.password was "12345678" — conftest.py seeds "Test1234!"
+ *      Fixed to: Test1234!
+ *   3. Added DISPATCHER and FINANCE users (seeded in conftest.py but
+ *      missing from fixtures — needed by fleet, fuel, and settings specs)
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { test as base, expect, type Page } from "@playwright/test";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CREDENTIALS — match seed_users in conftest.py
-// Never commit real credentials; these are test-only accounts.
+// CREDENTIALS — must match SEED dict in tests/conftest.py exactly
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const USERS = {
@@ -27,9 +42,22 @@ export const USERS = {
     role: "ADMIN",
   },
   mechanic: {
-    email: "	rashida@fleetms.com",
-    password: "12345678",
+    // FIX: was "\trashida@fleetms.com" (leading tab) with wrong password
+    email: "mechanic@fleetms.com",
+    password: "Test1234!",
     role: "MECHANIC",
+  },
+  dispatcher: {
+    // NEW: required for trip creation and fleet read tests
+    email: "dispatcher@fleetms.com",
+    password: "Dispatch1234!",
+    role: "DISPATCHER",
+  },
+  finance: {
+    // NEW: required for expense and fuel log tests
+    email: "finance@fleetms.com",
+    password: "Finance1234!",
+    role: "FINANCE",
   },
   driver: {
     email: "kuriaj@fleetms.com",
@@ -43,8 +71,8 @@ export const USERS = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Perform a full login via the UI and wait until the dashboard is visible.
- * Returns the page so callers can chain further actions.
+ * Perform a full login via the UI form and wait until the redirect
+ * away from /login confirms auth succeeded.
  */
 export async function loginAs(
   page: Page,
@@ -55,16 +83,14 @@ export async function loginAs(
   await page.getByLabel(/password/i).fill(user.password);
   await page.getByRole("button", { name: /sign in|log in/i }).click();
 
-  // Wait until redirected away from /login — confirms auth succeeded
   await page.waitForURL((url) => !url.pathname.includes("/login"), {
     timeout: 10_000,
   });
 }
 
 /**
- * Navigate to a protected route while logged out and assert the redirect
- * back to /login, then assert the redirect back to the original URL after
- * logging in.
+ * Navigate to a protected route while logged out, assert the /login redirect,
+ * then log in and assert the redirect back to the original URL.
  */
 export async function assertAuthRedirect(
   page: Page,
@@ -79,21 +105,26 @@ export async function assertAuthRedirect(
   await page.getByLabel(/password/i).fill(user.password);
   await page.getByRole("button", { name: /sign in|log in/i }).click();
 
-  // Should redirect back to the originally requested route
   await page.waitForURL((url) => url.pathname.includes(protectedPath), {
     timeout: 10_000,
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FIXTURES
+// FIXTURE TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
 type FleetFixtures = {
   adminPage: Page;
   mechanicPage: Page;
+  dispatcherPage: Page;
+  financePage: Page;
   driverPage: Page;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIXTURES
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const test = base.extend<FleetFixtures>({
   adminPage: async ({ page }, use) => {
@@ -103,6 +134,16 @@ export const test = base.extend<FleetFixtures>({
 
   mechanicPage: async ({ page }, use) => {
     await loginAs(page, USERS.mechanic);
+    await use(page);
+  },
+
+  dispatcherPage: async ({ page }, use) => {
+    await loginAs(page, USERS.dispatcher);
+    await use(page);
+  },
+
+  financePage: async ({ page }, use) => {
+    await loginAs(page, USERS.finance);
     await use(page);
   },
 

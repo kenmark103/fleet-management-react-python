@@ -13,7 +13,7 @@ Business logic:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select, func, update
@@ -169,7 +169,7 @@ async def mark_overdue_work_orders(db: AsyncSession) -> int:
         update(WorkOrder)
         .where(
             WorkOrder.status.in_(["pending", "in-progress"]),
-            WorkOrder.scheduled_date < datetime.utcnow(),
+            WorkOrder.scheduled_date < datetime.now(timezone.utc),
         )
         .values(status="overdue")
         .execution_options(synchronize_session="fetch")

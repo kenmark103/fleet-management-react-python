@@ -34,6 +34,7 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const search = Route.useSearch()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +43,7 @@ function LoginPage() {
 
     try {
       await login({ email, password })
-      navigate({ to: '/dashboard' })
+      navigate({ to: search.redirect ?? '/dashboard' })
     } catch (err: any) {
       const detail = err.response?.data?.detail
       if (Array.isArray(detail)) {

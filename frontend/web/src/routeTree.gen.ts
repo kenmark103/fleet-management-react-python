@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -51,6 +52,11 @@ import { Route as AuthFleetTrailersTrailerIdEditRouteImport } from './routes/_au
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptInviteRoute = AcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -253,6 +259,7 @@ const AuthFleetTrailersTrailerIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
@@ -292,6 +299,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
@@ -333,6 +341,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/about': typeof AboutRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/login': typeof LoginRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/drivers/new': typeof AuthDriversNewRoute
@@ -374,6 +383,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/accept-invite'
     | '/login'
     | '/dashboard'
     | '/drivers/new'
@@ -413,6 +423,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/accept-invite'
     | '/login'
     | '/dashboard'
     | '/drivers/new'
@@ -453,6 +464,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/about'
+    | '/accept-invite'
     | '/login'
     | '/_auth/dashboard'
     | '/_auth/drivers/new'
@@ -494,6 +506,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AcceptInviteRoute: typeof AcceptInviteRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -504,6 +517,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invite': {
+      id: '/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AcceptInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -851,6 +871,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   AboutRoute: AboutRoute,
+  AcceptInviteRoute: AcceptInviteRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

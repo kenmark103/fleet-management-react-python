@@ -1,54 +1,58 @@
 """
 tests/integration/test_work_orders.py
-Fleet Management System — Phase 7
+Fleet Management System — UPDATED for current schema
 
-Integration tests for the Work Order API.
-These tests run against a real PostgreSQL test DB (spun up by CI).
+Changes from original:
+- vehicle_id → truck_id
+- status "open" → "pending", "in_progress" → "in-progress"
+- Added assigned_mechanic_id (required field)
+- Added description (required field)
+- ISO datetime format with timezone
 """
 
 import pytest
 from httpx import AsyncClient
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CREATE
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestCreateWorkOrder:
     async def test_create_work_order_success(
-        self, auth_client: AsyncClient, sample_vehicle_id: str
+        self, auth_client: AsyncClient, sample_truck_id: str, mechanic_user_id: str
     ):
+        """FIXED: Added mechanic_user_id, changed vehicle_id to truck_id"""
         payload = {
-            "vehicle_id": sample_vehicle_id,
+            "truck_id": sample_truck_id,
+            "assigned_mechanic_id": mechanic_user_id,
             "title": "Engine oil change",
             "description": "Full synthetic 5W-30",
             "priority": "medium",
-            "scheduled_date": "2025-06-01",
+            "scheduled_date": "2025-06-01T09:00:00Z",
         }
         res = await auth_client.post("/api/v1/maintenance/work-orders", json=payload)
 
         assert res.status_code == 201
         data = res.json()["data"]
         assert data["title"] == payload["title"]
-        assert data["status"] == "open"
-        assert data["vehicle_id"] == sample_vehicle_id
+        assert data["status"] == "pending"  # CHANGED: was "open"
+        assert data["truckId"] == sample_truck_id
         assert "id" in data
 
     async def test_create_work_order_missing_required_fields(
         self, auth_client: AsyncClient
     ):
         res = await auth_client.post(
-            "/api/v1/maintenance/work-orders", json={"title": "No vehicle"}
+            "/api/v1/maintenance/work-orders", json={"title": "No truck"}
         )
         assert res.status_code == 422
 
     async def test_create_work_order_invalid_priority(
-        self, auth_client: AsyncClient, sample_vehicle_id: str
+        self, auth_client: AsyncClient, sample_truck_id: str, mechanic_user_id: str
     ):
         payload = {
-            "vehicle_id": sample_vehicle_id,
+            "truck_id": sample_truck_id,
+            "assigned_mechanic_id": mechanic_user_id,
             "title": "Bad priority",
-            "priority": "super_urgent",  # not a valid enum value
+            "description": "Test",
+            "priority": "super_urgent",
         }
         res = await auth_client.post("/api/v1/maintenance/work-orders", json=payload)
         assert res.status_code == 422
@@ -56,14 +60,10 @@ class TestCreateWorkOrder:
     async def test_create_work_order_requires_auth(self, client: AsyncClient):
         res = await client.post(
             "/api/v1/maintenance/work-orders",
-            json={"vehicle_id": "x", "title": "Unauth"},
+            json={"truck_id": "x", "title": "Unauth", "description": "Test"},
         )
         assert res.status_code == 401
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# READ
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestGetWorkOrders:
     async def test_list_work_orders(self, auth_client: AsyncClient, work_order):
@@ -71,9 +71,9 @@ class TestGetWorkOrders:
 
         assert res.status_code == 200
         body = res.json()
-        assert "items" in body
-        assert "total" in body
-        assert isinstance(body["items"], list)
+        assert "data" in body
+        assert "meta" in body
+        assert isinstance(body["data"], list)
 
     async def test_list_work_orders_pagination(
         self, auth_client: AsyncClient, multiple_work_orders
@@ -83,28 +83,28 @@ class TestGetWorkOrders:
         )
         assert res.status_code == 200
         body = res.json()
-        assert len(body["items"]) <= 2
+        assert len(body["data"]) <= 2
 
     async def test_list_work_orders_filter_by_status(
         self, auth_client: AsyncClient, work_order
     ):
         res = await auth_client.get(
-            "/api/v1/maintenance/work-orders", params={"status": "open"}
+            "/api/v1/maintenance/work-orders", params={"status": "pending"}
         )
         assert res.status_code == 200
-        for item in res.json()["items"]:
-            assert item["status"] == "open"
+        for item in res.json()["data"]:
+            assert item["status"] == "pending"
 
-    async def test_list_work_orders_filter_by_vehicle(
-        self, auth_client: AsyncClient, work_order, sample_vehicle_id: str
+    async def test_list_work_orders_filter_by_truck(
+        self, auth_client: AsyncClient, work_order, sample_truck_id: str
     ):
         res = await auth_client.get(
             "/api/v1/maintenance/work-orders",
-            params={"vehicle_id": sample_vehicle_id},
+            params={"truck_id": sample_truck_id},
         )
         assert res.status_code == 200
-        for item in res.json()["items"]:
-            assert item["vehicle_id"] == sample_vehicle_id
+        for item in res.json()["data"]:
+            assert item["truckId"] == sample_truck_id
 
     async def test_get_single_work_order(
         self, auth_client: AsyncClient, work_order: dict
@@ -126,10 +126,6 @@ class TestGetWorkOrders:
         res = await client.get("/api/v1/maintenance/work-orders")
         assert res.status_code == 401
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# UPDATE
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestUpdateWorkOrder:
     async def test_update_work_order_fields(
@@ -175,30 +171,26 @@ class TestUpdateWorkOrder:
         assert res.status_code == 401
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# STATUS TRANSITIONS
-# ─────────────────────────────────────────────────────────────────────────────
-
 class TestWorkOrderStatus:
-    async def test_update_status_open_to_in_progress(
+    async def test_update_status_pending_to_in_progress(
         self, auth_client: AsyncClient, work_order: dict
     ):
+        """FIXED: Status uses hyphen 'in-progress' not underscore"""
         wo_id = work_order["id"]
         res = await auth_client.patch(
             f"/api/v1/maintenance/work-orders/{wo_id}/status",
-            json={"status": "in_progress"},
+            json={"status": "in-progress"},  # CHANGED: was "in_progress"
         )
         assert res.status_code == 200
-        assert res.json()["data"]["status"] == "in_progress"
+        assert res.json()["data"]["status"] == "in-progress"
 
     async def test_update_status_to_completed(
         self, auth_client: AsyncClient, work_order: dict
     ):
         wo_id = work_order["id"]
-        # Move through valid states
         await auth_client.patch(
             f"/api/v1/maintenance/work-orders/{wo_id}/status",
-            json={"status": "in_progress"},
+            json={"status": "in-progress"},
         )
         res = await auth_client.patch(
             f"/api/v1/maintenance/work-orders/{wo_id}/status",
@@ -219,18 +211,12 @@ class TestWorkOrderStatus:
     async def test_completed_order_cannot_reopen(
         self, auth_client: AsyncClient, completed_work_order: dict
     ):
-        """Completed work orders should not transition back to open."""
         res = await auth_client.patch(
             f"/api/v1/maintenance/work-orders/{completed_work_order['id']}/status",
-            json={"status": "open"},
+            json={"status": "pending"},
         )
-        # Expect 409 Conflict or 422 depending on your business rule implementation
         assert res.status_code in (409, 422)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DELETE
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestDeleteWorkOrder:
     async def test_delete_work_order(
@@ -240,7 +226,6 @@ class TestDeleteWorkOrder:
         res = await auth_client.delete(f"/api/v1/maintenance/work-orders/{wo_id}")
         assert res.status_code in (200, 204)
 
-        # Confirm it's gone
         get_res = await auth_client.get(f"/api/v1/maintenance/work-orders/{wo_id}")
         assert get_res.status_code == 404
 

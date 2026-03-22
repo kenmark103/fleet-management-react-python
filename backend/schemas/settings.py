@@ -8,6 +8,9 @@ Single-row settings storage for organization preferences.
 from datetime import datetime
 from typing import Optional, Literal
 
+import pytz
+from pydantic import field_validator
+
 from schemas.common import CamelBase
 
 
@@ -59,3 +62,12 @@ class SystemSettingsUpdate(CamelBase):
 
     theme: Optional[Literal["light", "dark", "system"]] = None
     default_language: Optional[str] = None
+
+    @field_validator("org_timezone")
+    @classmethod
+    def validate_timezone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if v not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {v}")
+        return v

@@ -1,9 +1,7 @@
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
-
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -18,15 +16,15 @@ const config = defineConfig({
     viteReact(),
   ],
   server: {
-      port: 3000,
-      host:"0.0.0.0",
-      proxy: {
-        "/api":  { target: API, changeOrigin: true },
-        "/auth":    { target: API, changeOrigin: true },
-        "/health":  { target: API, changeOrigin: true },
-        "/static": { target: API, changeOrigin: true },
-        "/ws":      { target: API, changeOrigin: true, ws: true }
-      },
+    port: 3000,
+    host: "0.0.0.0",
+    proxy: {
+      "/api":    { target: API, changeOrigin: true },
+      "/auth":   { target: API, changeOrigin: true },
+      "/health": { target: API, changeOrigin: true },
+      "/static": { target: API, changeOrigin: true },
+      "/ws":     { target: API, changeOrigin: true, ws: true }
+    },
   },
 })
 

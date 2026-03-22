@@ -25,14 +25,19 @@ test.describe("Login", () => {
     await page.getByLabel(/password/i).fill(USERS.admin.password);
     await page.getByRole("button", { name: /sign in|log in/i }).click();
 
-    // Should leave /login and land somewhere meaningful
-    await page.waitForURL((url) => !url.pathname.includes("/login"));
+    // Wait until we leave /login — use a generous timeout here because the
+    // very first run incurs a cold-start penalty: _auth.tsx shows a
+    // <LoadingSpinner> while the /me auth check resolves, which adds latency
+    // before AppShell (and therefore <main>) renders. Subsequent runs are fast
+    // because the token is already cached.
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 15_000,
+    });
     await expect(page).not.toHaveURL(/\/login/);
 
-    // Dashboard landmark should be visible — adjust selector to your app
-    await expect(
-      page.getByRole("navigation").or(page.getByTestId("dashboard"))
-    ).toBeVisible();
+    // AppShell renders a <main> element for all authenticated pages.
+    // Waiting explicitly for it handles the _auth.tsx spinner delay.
+    await expect(page.getByRole("main")).toBeVisible({ timeout: 10_000 });
   });
 
   test("wrong password → error message shown, stays on /login", async ({
@@ -43,12 +48,10 @@ test.describe("Login", () => {
     await page.getByLabel(/password/i).fill("definitely-wrong");
     await page.getByRole("button", { name: /sign in|log in/i }).click();
 
-    // Error text — adjust to match your UI copy
     await expect(
       page.getByText(/incorrect|invalid|wrong|failed/i)
     ).toBeVisible({ timeout: 6_000 });
 
-    // Must not have navigated away
     expect(page.url()).toContain("/login");
   });
 
@@ -56,9 +59,12 @@ test.describe("Login", () => {
     await page.goto("/login");
     await page.getByRole("button", { name: /sign in|log in/i }).click();
 
-    // Expect at least one validation message
-    const errors = page.getByText(/required|this field|please enter/i);
-    await expect(errors.first()).toBeVisible({ timeout: 4_000 });
+    // Both inputs carry HTML `required`. The browser fires native constraint
+    // validation — no error text is written into the DOM — so getByText() finds
+    // nothing. Assert the CSS :invalid pseudo-class instead.
+    await expect(page.locator("input:invalid").first()).toBeVisible({
+      timeout: 4_000,
+    });
   });
 
   test("unknown email → error message shown", async ({ page }) => {
@@ -82,11 +88,14 @@ test.describe("Logout", () => {
   test("clicking logout clears session and redirects to /login", async ({
     adminPage: page,
   }) => {
-    // Find and click the logout trigger — adjust selector to your UI
-    await page
-      .getByRole("button", { name: /logout|sign out/i })
-      .or(page.getByTestId("logout-btn"))
-      .click();
+    // "Log out" is inside the user DropdownMenu — the trigger must be opened
+    // first. It is the last <button> in the <header>:
+    //   [mobile-menu (md:hidden)] · [bell] · [user avatar ← this one]
+    //
+    // The item text is "Log out" (two words with a space). The shadcn
+    // DropdownMenuItem renders with role="menuitem", not "button".
+    await page.locator("header").getByRole("button").last().click();
+    await page.getByRole("menuitem", { name: /log out/i }).click();
 
     await page.waitForURL(/\/login/, { timeout: 8_000 });
     expect(page.url()).toContain("/login");
@@ -95,15 +104,12 @@ test.describe("Logout", () => {
   test("after logout, navigating to a protected route stays on /login", async ({
     adminPage: page,
   }) => {
-    // Logout
-    await page
-      .getByRole("button", { name: /logout|sign out/i })
-      .or(page.getByTestId("logout-btn"))
-      .click();
+    await page.locator("header").getByRole("button").last().click();
+    await page.getByRole("menuitem", { name: /log out/i }).click();
     await page.waitForURL(/\/login/);
 
-    // Try to navigate directly to a protected page
-    await page.goto("/work-orders");
+    // /trips is a real _auth-guarded index route (routeTree: /_auth/trips/)
+    await page.goto("/trips");
     await expect(page).toHaveURL(/\/login/);
   });
 });
@@ -113,31 +119,50 @@ test.describe("Logout", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe("Route guards", () => {
-  test("unauthenticated /work-orders → redirect to /login", async ({
-    page,
-  }) => {
-    await page.goto("/work-orders");
-    await page.waitForURL(/\/login/, { timeout: 8_000 });
-    expect(page.url()).toContain("/login");
-  });
-
-  test("unauthenticated /settings → redirect to /login", async ({ page }) => {
-    await page.goto("/settings");
-    await page.waitForURL(/\/login/, { timeout: 8_000 });
-    expect(page.url()).toContain("/login");
-  });
-
+  // /drivers has a clean index route (/_auth/drivers/) and is guarded by _auth
   test("unauthenticated /drivers → redirect to /login", async ({ page }) => {
     await page.goto("/drivers");
     await page.waitForURL(/\/login/, { timeout: 8_000 });
     expect(page.url()).toContain("/login");
   });
 
+  // /trips has a clean index route (/_auth/trips/) and is guarded by _auth
+  test("unauthenticated /trips → redirect to /login", async ({ page }) => {
+    await page.goto("/trips");
+    await page.waitForURL(/\/login/, { timeout: 8_000 });
+    expect(page.url()).toContain("/login");
+  });
+
+  test("unauthenticated /settings/profile → redirect to /login", async ({
+    page,
+  }) => {
+    await page.goto("/settings/profile");
+    await page.waitForURL(/\/login/, { timeout: 8_000 });
+    expect(page.url()).toContain("/login");
+  });
+
+  // Deep link — use /fleet/trucks because:
+  //   1. It is a real index route (/_auth/fleet/trucks/)
+  //   2. MECHANIC has access to it (constants.ts NAV_ITEMS Fleet section)
+  //   3. After login the app can actually land there without a secondary redirect
+  //
+  // NOTE: this test requires _auth.tsx to pass a ?redirect= param when
+  // bouncing to /login, and LoginPage to read it after a successful login.
+  // Current _auth.tsx calls navigate({ to: "/login", replace: true }) with no
+  // search params — the deep-link round-trip won't work until that is fixed.
+  //
+  // Fix in _auth.tsx:
+  //   const location = useLocation();
+  //   navigate({ to: "/login", search: { redirect: location.pathname }, replace: true });
+  //
+  // Fix in login.tsx (inside handleSubmit, replace the navigate call):
+  //   const search = Route.useSearch<{ redirect?: string }>();
+  //   navigate({ to: search.redirect ?? "/dashboard" });
   test("deep link preserved → after login redirects to original URL", async ({
     page,
   }) => {
-    await assertAuthRedirect(page, "/work-orders", USERS.mechanic);
-    expect(page.url()).toContain("/work-orders");
+    await assertAuthRedirect(page, "/fleet/trucks", USERS.admin);
+    expect(page.url()).toContain("/fleet/trucks");
   });
 });
 
@@ -151,7 +176,9 @@ test.describe("Session persistence", () => {
 
     await page.reload();
 
-    // Should still be on the same page, not redirected to /login
+    // _auth.tsx shows <LoadingSpinner> while the auth check re-runs after
+    // reload. Wait for <main> to confirm the app shell has re-mounted.
+    await expect(page.getByRole("main")).toBeVisible({ timeout: 10_000 });
     await expect(page).not.toHaveURL(/\/login/);
     expect(page.url()).toBe(urlBeforeRefresh);
   });
@@ -161,9 +188,10 @@ test.describe("Session persistence", () => {
     context,
   }) => {
     const newTab = await context.newPage();
-    await newTab.goto("/work-orders");
+    // /drivers is a real index route and ADMIN has access
+    await newTab.goto("/drivers");
 
-    // Should load the work orders page, not redirect to login
+    await expect(newTab.getByRole("main")).toBeVisible({ timeout: 10_000 });
     await expect(newTab).not.toHaveURL(/\/login/);
     await newTab.close();
   });

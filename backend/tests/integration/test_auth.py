@@ -3,31 +3,28 @@ tests/integration/test_auth.py
 Fleet Management System
 
 Integration tests for the authentication endpoints.
+UPDATED for cookie-based authentication (tokens in HttpOnly cookies).
 
 Covered:
   POST /auth/token    — success, wrong password, unknown email, missing fields
-  POST /auth/refresh  — valid token, invalid token, missing token
-  POST /auth/logout   — invalidates the refresh token, requires auth
+  POST /auth/refresh  — valid cookie, invalid cookie, missing cookie
+  POST /auth/logout   — clears cookies, requires auth
   GET  /health        — sanity check (no auth required)
 
-Note: registration tests are separate and must disable background tasks
-(email verification, welcome email) before running.
+Note: Tokens are now stored in HttpOnly cookies, not returned in JSON body.
 """
 
 from httpx import AsyncClient
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HELPER — handles both flat and enveloped response shapes
+# HELPER — extract cookies from response
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _tokens(body: dict) -> dict:
-    """
-    Return the token payload regardless of whether the route wraps it in
-    {"data": {...}} or returns it flat {"access_token": ..., "refresh_token": ...}.
-    Update this helper if your response shape changes.
-    """
-    return body.get("data", body)
+def _get_cookie(response, cookie_name: str) -> str | None:
+    """Extract a specific cookie value from response headers."""
+    # httpx stores cookies in response.cookies
+    return response.cookies.get(cookie_name)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,40 +44,47 @@ class TestHealthCheck:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestLogin:
-    async def test_login_success_returns_tokens(self, client: AsyncClient):
-        """Valid credentials should return both access and refresh tokens."""
+    async def test_login_success_returns_tokens_in_cookies(self, client: AsyncClient):
+        """Valid credentials should set both access_token and refresh_token cookies."""
         res = await client.post(
             "/auth/token",
             json={
-                "email": "mechanic@fleetapp.com",
+                "email": "mechanic@fleetms.com",  # FIXED: was fleetapp.com
                 "password": "Test1234!",
             },
         )
 
         assert res.status_code == 200
-        tokens = _tokens(res.json())
-        assert "access_token" in tokens
-        assert "refresh_token" in tokens
-        assert tokens["token_type"] == "bearer"
+        # Tokens are now in HttpOnly cookies, not JSON body
+        assert "access_token" in res.cookies
+        assert "refresh_token" in res.cookies
+        # Response body contains user data and message
+        body = res.json()
+        assert body["message"] == "Login successful"
+        assert "user" in body
+        assert body["user"]["email"] == "mechanic@fleetms.com"
 
     async def test_login_admin_success(self, client: AsyncClient):
-        """Admin credentials should also work through the same endpoint."""
+        """Admin credentials should also work and set cookies."""
         res = await client.post(
             "/auth/token",
             json={
-                "email": "admin@fleetapp.com",
+                "email": "admin@fleetms.com",
                 "password": "Admin1234!",
             },
         )
 
         assert res.status_code == 200
-        assert "access_token" in _tokens(res.json())
+        assert "access_token" in res.cookies
+        assert "refresh_token" in res.cookies
+        body = res.json()
+        assert body["user"]["role"] == "ADMIN"
 
     async def test_login_wrong_password(self, client: AsyncClient):
         res = await client.post(
             "/auth/token",
             json={
-                "email": "mechanic@fleetapp.com",
+                "email": "mechanic@fleetms.com",
                 "password": "WrongPass!",
             },
         )
@@ -92,7 +96,7 @@ class TestLogin:
         res = await client.post(
             "/auth/token",
             json={
-                "email": "nobody@fleetapp.com",
+                "email": "nobody@fleetms.com",
                 "password": "Test1234!",
             },
         )
@@ -103,7 +107,7 @@ class TestLogin:
     async def test_login_missing_password_field(self, client: AsyncClient):
         res = await client.post(
             "/auth/token",
-            json={"email": "mechanic@fleetapp.com"},
+            json={"email": "mechanic@fleetms.com"},
         )
 
         assert res.status_code == 422
@@ -120,39 +124,46 @@ class TestLogin:
 
 class TestTokenRefresh:
     async def test_refresh_returns_new_access_token(self, client: AsyncClient):
-        """A valid refresh token should yield a new access token."""
+        """A valid refresh token cookie should yield a new access token cookie."""
+        # First login to get cookies
         login = await client.post(
             "/auth/token",
             json={
-                "email": "mechanic@fleetapp.com",
+                "email": "mechanic@fleetms.com",  # FIXED: was fleetapp.com
                 "password": "Test1234!",
             },
         )
         assert login.status_code == 200, f"Login step failed: {login.text}"
-        refresh_token = _tokens(login.json())["refresh_token"]
+        # Refresh token is now in cookies, not JSON body
+        assert "refresh_token" in login.cookies
 
-        res = await client.post(
-            "/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
+        # Refresh endpoint reads refresh_token from cookies, not JSON body
+        res = await client.post("/auth/refresh")
 
         assert res.status_code == 200
-        assert "access_token" in _tokens(res.json())
+        # New access_token cookie should be set
+        assert "access_token" in res.cookies
+        body = res.json()
+        assert body["message"] == "Token refreshed"
 
     async def test_refresh_with_invalid_token(self, client: AsyncClient):
-        res = await client.post(
-            "/auth/refresh",
-            json={"refresh_token": "this.is.not.valid"},
-        )
+        """Manually set an invalid refresh cookie and verify it's rejected."""
+        # Clear any existing cookies and set invalid one
+        client.cookies.clear()
+        client.cookies.set("refresh_token", "this.is.not.valid")
+
+        res = await client.post("/auth/refresh")
 
         assert res.status_code == 401
 
     async def test_refresh_with_missing_token(self, client: AsyncClient):
-        # Empty body hits auth middleware before schema validation on this endpoint,
-        # so the response may be 401 rather than 422. Either is a correct rejection.
-        res = await client.post("/auth/refresh", json={})
+        """No refresh cookie should return 401."""
+        # Clear any cookies
+        client.cookies.clear()
 
-        assert res.status_code in (401, 422)
+        res = await client.post("/auth/refresh")
+
+        assert res.status_code == 401
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -160,42 +171,43 @@ class TestTokenRefresh:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestLogout:
-    async def test_logout_invalidates_refresh_token(self, client: AsyncClient):
-        """After logout the same refresh token must be rejected."""
+    async def test_logout_clears_cookies(self, client: AsyncClient):
+        """After logout the cookies should be cleared."""
+        # Login first
         login = await client.post(
             "/auth/token",
             json={
-                "email": "mechanic@fleetapp.com",
+                "email": "mechanic@fleetms.com",  # FIXED: was fleetapp.com
                 "password": "Test1234!",
             },
         )
         assert login.status_code == 200, f"Login step failed: {login.text}"
-        tokens = _tokens(login.json())
-        access_token  = tokens["access_token"]
-        refresh_token = tokens["refresh_token"]
+        # Verify cookies exist
+        assert "access_token" in login.cookies
+        assert "refresh_token" in login.cookies
 
-        logout_res = await client.post(
-            "/auth/logout",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        assert logout_res.status_code in (200, 204)
+        # Logout (cookies are automatically sent by client)
+        logout_res = await client.post("/auth/logout")
+        assert logout_res.status_code == 200
+        assert logout_res.json()["message"] == "Logged out successfully"
 
-        # Same refresh token must now be rejected
-        retry = await client.post(
-            "/auth/refresh",
-            json={"refresh_token": refresh_token},
-        )
-        assert retry.status_code == 401
+        # After logout, cookies should be cleared (expired)
+        # httpx doesn't automatically remove cookies on response, but server sets expire
+        # Verify refresh fails after logout
+        refresh_res = await client.post("/auth/refresh")
+        assert refresh_res.status_code == 401
 
     async def test_logout_requires_auth(self, client: AsyncClient):
         """
-        Unauthenticated logout is a no-op on this implementation (returns 200).
-        The important invariant is already covered by test_logout_invalidates_refresh_token:
-        a token obtained before logout cannot be reused after.
+        Logout without auth cookies still returns 200 (it's a no-op on server side).
+        The cookies are cleared regardless.
         """
+        # Clear any cookies
+        client.cookies.clear()
+
         res = await client.post("/auth/logout")
 
-        assert res.status_code in (200, 204, 401)
+        assert res.status_code == 200
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -204,7 +216,10 @@ class TestLogout:
 
 class TestAuthGuard:
     async def test_protected_route_without_token(self, client: AsyncClient):
-        """Any protected endpoint must return 401 with no token."""
+        """Any protected endpoint must return 401 with no token cookie."""
+        # Ensure no cookies
+        client.cookies.clear()
+
         res = await client.get("/api/v1/maintenance/work-orders")
 
         assert res.status_code == 401
@@ -216,9 +231,10 @@ class TestAuthGuard:
         assert res.status_code == 200
 
     async def test_protected_route_with_malformed_token(self, client: AsyncClient):
-        res = await client.get(
-            "/api/v1/maintenance/work-orders",
-            headers={"Authorization": "Bearer not.a.real.token"},
-        )
+        # Clear and set malformed token
+        client.cookies.clear()
+        client.cookies.set("access_token", "not.a.real.token")
+
+        res = await client.get("/api/v1/maintenance/work-orders")
 
         assert res.status_code == 401

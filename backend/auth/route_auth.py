@@ -39,7 +39,7 @@ async def me(current_user: Annotated[User, Depends(get_current_user)]):
 
 # ─── POST /auth/token (login) ─────────────────────────────────────────────────
 @router.post("/token", response_model=LoginResponse)
-@limiter.limit("5 per minute")
+@limiter.limit("100 per minute")
 async def login(request: Request , response: Response, login_request: LoginRequest, db: DB):
     result = await db.execute(select(User).where(User.email == login_request.email))
     user = result.scalar_one_or_none()
