@@ -1,13 +1,10 @@
 """
 schemas/drivers.py
-Fleet Management System — Phase 4 (revised Phase 8)
+Fleet Management System
 
-Change from original:
-  - DriverCreate no longer requires user_id.
-    POST /drivers now creates the User account + Driver profile atomically.
-    Caller supplies temp_password instead — the User row is an implementation
-    detail of the endpoint, not the caller's responsibility.
-
+DriverCreate change: removed temp_password, added user_id.
+The User account is created separately via the invite flow.
+POST /drivers now only creates the Driver profile row linked to an existing User.
 Everything else (DriverUpdate, DriverResponse, documents, summary) is unchanged.
 """
 
@@ -15,14 +12,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import EmailStr, field_validator
+from pydantic import field_validator
 
 from schemas.common import CamelBase, DriverStatus, DriverDocumentType
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DRIVERS
-# ─────────────────────────────────────────────────────────────────────────────
 
 class DriverBase(CamelBase):
     first_name:              str
@@ -45,21 +38,16 @@ class DriverBase(CamelBase):
 
 class DriverCreate(DriverBase):
     """
-    POST /drivers — ADMIN only.
+    POST /api/v1/drivers
 
-    Creates a User (role=DRIVER) + Driver profile in a single atomic transaction.
-    user_id is intentionally absent — the endpoint generates it internally.
+    Links an existing User (role=DRIVER, already activated via invite) to a
+    new Driver profile. Used by the self-service /drivers/setup page and by
+    admins creating a profile for an existing user.
 
-    temp_password: admin sets it; driver should change on first login.
+    user_id: ID of the already-existing User row to link.
+    The router validates: user exists, role==DRIVER, no profile yet, unique license.
     """
-    temp_password: str   # → tempPassword (camelCase on wire)
-
-    @field_validator("temp_password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+    user_id: str   # → userId on the wire (CamelBase handles the conversion)
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -70,13 +58,7 @@ class DriverCreate(DriverBase):
 
 
 class DriverUpdate(CamelBase):
-    """
-    PATCH /drivers/{id} — ADMIN only.
-
-    All fields optional — only supplied fields are updated.
-    Changing first_name / last_name / email here is mirrored to the
-    linked User row by the router so accounts stay in sync.
-    """
+    """PATCH /api/v1/drivers/{id} — all fields optional."""
     first_name:              Optional[str]          = None
     last_name:               Optional[str]          = None
     email:                   Optional[str]          = None
@@ -96,25 +78,15 @@ class DriverUpdate(CamelBase):
 
 
 class DriverResponse(DriverBase):
-    """
-    GET /drivers       — list item
-    GET /drivers/{id}  — detail
-    """
     id:               str
     user_id:          str
-    # Computed fields — populated in the router
     current_truck_id: Optional[str] = None
     active_trip_id:   Optional[str] = None
     created_at:       datetime
     updated_at:       datetime
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DRIVER DOCUMENTS
-# ─────────────────────────────────────────────────────────────────────────────
-
 class DriverDocumentCreate(CamelBase):
-    """POST /drivers/{id}/documents — ADMIN only."""
     type:        DriverDocumentType
     file_name:   str
     file_url:    str
@@ -122,7 +94,6 @@ class DriverDocumentCreate(CamelBase):
 
 
 class DriverDocumentResponse(CamelBase):
-    """GET /drivers/{id}/documents"""
     id:          str
     driver_id:   str
     type:        DriverDocumentType
@@ -130,15 +101,10 @@ class DriverDocumentResponse(CamelBase):
     file_url:    str
     expiry_date: Optional[datetime] = None
     uploaded_at: datetime
-    uploaded_by: str   # user_id
+    uploaded_by: str
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SUMMARY
-# ─────────────────────────────────────────────────────────────────────────────
 
 class DriverSummary(CamelBase):
-    """GET /drivers/summary — aggregated counts for dashboard / header cards."""
     total_drivers:         int
     active_drivers:        int
     inactive_drivers:      int

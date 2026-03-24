@@ -12,6 +12,7 @@ import type { UserRole } from "../lib/constants";
 // USER
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type UserStatus = "active" | "inactive" | "pending";
 export interface User {
   id: string;
   firstName: string;
@@ -24,6 +25,7 @@ export interface User {
   createdAt: string;   // ISO 8601
   updatedAt: string;
   lastLoginAt?: string;
+  driverProfileId: string | null;
 }
 
 /** Derived helper — full display name */

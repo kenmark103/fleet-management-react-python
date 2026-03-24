@@ -1,12 +1,12 @@
 """
 schemas/users.py
-Fleet Management System — Phase 8 → Phase 10 (invite flow)
+Fleet Management System
 
-Changes:
-  - UserCreate: removed temp_password — admin no longer sets passwords
-  - UserResponse / UserListItem: added status field
-  - AcceptInviteRequest: new — used by POST /auth/accept-invite
-  - InviteInfoResponse: new — used by GET /auth/invite-info
+Changes in this revision:
+  - UserResponse: added driver_profile_id (Optional[str])
+    Populated by the /auth/me endpoint via a secondary Driver query.
+    All other endpoints return None for this field — only /me needs it.
+  - Everything else is unchanged.
 """
 
 from __future__ import annotations
@@ -23,20 +23,28 @@ from schemas.common import CamelBase, UserRole, UserStatus
 # ─────────────────────────────────────────────────────────────────────────────
 
 class UserResponse(CamelBase):
-    """Full user object — returned for single-item endpoints."""
-    id:            str
-    first_name:    str
-    last_name:     str
-    email:         str
-    role:          UserRole
-    status:        UserStatus         # active | inactive | pending
-    is_active:     bool
-    is_verified:   bool
-    phone:         Optional[str]      = None
-    avatar_url:    Optional[str]      = None
-    last_login_at: Optional[datetime] = None
-    created_at:    datetime
-    updated_at:    datetime
+    """
+    Full user object — returned for single-item endpoints.
+
+    driver_profile_id is only populated by GET /auth/me.
+    All other endpoints return None for this field — they don't
+    need the extra DB query overhead.
+    """
+    id:                str
+    first_name:        str
+    last_name:         str
+    email:             str
+    role:              UserRole
+    status:            UserStatus         # active | inactive | pending
+    is_active:         bool
+    is_verified:       bool
+    phone:             Optional[str]      = None
+    avatar_url:        Optional[str]      = None
+    last_login_at:     Optional[datetime] = None
+    created_at:        datetime
+    updated_at:        datetime
+    # Populated only by /auth/me — None everywhere else
+    driver_profile_id: Optional[str]     = None
 
 
 class UserListItem(CamelBase):
@@ -141,7 +149,7 @@ class AcceptInviteRequest(CamelBase):
     """
     token:      str
     password:   str
-    first_name: Optional[str] = None   # user can confirm/correct their name
+    first_name: Optional[str] = None
     last_name:  Optional[str] = None
     phone:      Optional[str] = None
 
@@ -157,7 +165,6 @@ class InviteInfoResponse(CamelBase):
     """
     GET /auth/invite-info?token=xxx
     Returns enough info to pre-fill the accept-invite form.
-    Never returns sensitive data — token is already validated.
     """
     first_name: str
     last_name:  str

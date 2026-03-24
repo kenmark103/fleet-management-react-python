@@ -1,3 +1,16 @@
+/**
+ * types/driver.ts
+ * Fleet Management System
+ *
+ * Changes from previous version:
+ *   - Removed DriverAdminCreate (used by old "admin creates everything" flow).
+ *     That flow is gone — drivers are now invited via /settings/users
+ *     and complete their own profile at /drivers/setup.
+ *   - DriverCreate restored to include userId (the setup page sends
+ *     the current user's own ID to POST /api/v1/drivers).
+ *   - tempPassword removed everywhere — passwords are set by users themselves.
+ */
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,81 +29,65 @@ export type DriverDocumentType =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Driver {
-  id:                    string;
-  userId:                string;
-  firstName:             string;
-  lastName:              string;
-  email:                 string;
-  phone:                 string;
-  status:                DriverStatus;
-  licenseNumber:         string;
-  licenseClass:          string;
-  licenseExpiryDate:     string;   // ISO 8601
-  hireDate:              string;
-  dateOfBirth?:          string;
-  nationalId?:           string;
-  address?:              string;
-  emergencyContactName?: string;
-  emergencyContactPhone?:string;
-  avatarUrl?:            string;
-  notes?:                string;
-  // Computed
-  currentTruckId?:       string;
-  activeTripId?:         string;
-  createdAt:             string;
-  updatedAt:             string;
+  id:                     string;
+  userId:                 string;
+  firstName:              string;
+  lastName:               string;
+  email:                  string;
+  phone:                  string;
+  status:                 DriverStatus;
+  licenseNumber:          string;
+  licenseClass:           string;
+  licenseExpiryDate:      string;   // ISO 8601
+  hireDate:               string;
+  dateOfBirth?:           string;
+  nationalId?:            string;
+  address?:               string;
+  emergencyContactName?:  string;
+  emergencyContactPhone?: string;
+  avatarUrl?:             string;
+  notes?:                 string;
+  // Computed — populated by the backend router
+  currentTruckId?:        string;
+  activeTripId?:          string;
+  createdAt:              string;
+  updatedAt:              string;
 }
 
 /**
- * Used when a Driver record already has a User account and you're
- * linking them — userId is required in this case.
+ * POST /api/v1/drivers
+ *
+ * Used by /drivers/setup when a driver completes their own profile.
+ * userId is the current authenticated user's ID — drivers can only
+ * create a profile linked to themselves (enforced by backend too).
+ *
+ * Admins can also POST here to create a profile for a specific user,
+ * but they still need to supply the userId of that user's existing account.
  */
 export interface DriverCreate {
-  userId:                string;
-  firstName:             string;
-  lastName:              string;
-  email:                 string;
-  phone:                 string;
-  status:                DriverStatus;
-  licenseNumber:         string;
-  licenseClass:          string;
-  licenseExpiryDate:     string;
-  hireDate:              string;
-  dateOfBirth?:          string;
-  nationalId?:           string;
-  address?:              string;
-  emergencyContactName?: string;
-  emergencyContactPhone?:string;
-  avatarUrl?:            string;
-  notes?:                string;
+  userId:                 string;  // links to an existing User row
+  firstName:              string;
+  lastName:               string;
+  email:                  string;
+  phone:                  string;
+  status:                 DriverStatus;
+  licenseNumber:          string;
+  licenseClass:           string;
+  licenseExpiryDate:      string;
+  hireDate:               string;
+  dateOfBirth?:           string;
+  nationalId?:            string;
+  address?:               string;
+  emergencyContactName?:  string;
+  emergencyContactPhone?: string;
+  avatarUrl?:             string;
+  notes?:                 string;
 }
 
 /**
- * Used by the admin "Add New Driver" form (POST /api/v1/drivers).
- * The backend atomically creates the User (role=DRIVER) + Driver profile,
- * so userId is NOT sent — it is generated server-side.
- * tempPassword is included so the backend can set the initial login credential.
+ * PATCH /api/v1/drivers/{id}
+ * All fields optional — only supplied fields are patched.
  */
-export interface DriverAdminCreate {
-  firstName:             string;
-  lastName:              string;
-  email:                 string;
-  phone:                 string;
-  status:                DriverStatus;
-  licenseNumber:         string;
-  licenseClass:          string;
-  licenseExpiryDate:     string;
-  hireDate:              string;
-  tempPassword:          string;
-  dateOfBirth?:          string;
-  nationalId?:           string;
-  address?:              string;
-  emergencyContactName?: string;
-  emergencyContactPhone?:string;
-  avatarUrl?:            string;
-  notes?:                string;
-}
-
 export type DriverUpdate = Partial<Omit<DriverCreate, "userId">>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +102,7 @@ export interface DriverDocument {
   fileUrl:     string;
   expiryDate?: string;
   uploadedAt:  string;
-  uploadedBy:  string;   // userId
+  uploadedBy:  string;  // userId
 }
 
 export interface DriverDocumentCreate {
@@ -127,7 +124,7 @@ export interface DriverSummary {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRIP HISTORY ITEM  (lightweight — full Trip type lives in types/trip.ts)
+// TRIP HISTORY  (lightweight — full Trip type lives in types/trips.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface DriverTripHistoryItem {

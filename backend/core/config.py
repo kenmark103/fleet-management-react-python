@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     MAIL_SERVER: str | None = "smtp.gmail.com"
     MAIL_FROM_NAME: str | None = "Fleet Management System"
 
+    MAIL_PROVIDER: str | None = None
+    MAILTRAP_USERNAME: str | None = None
+    MAILTRAP_PASSWORD: str | None = None
+
     # ── Misc ──────────────────────────────────────────────────────────────────
     NGROK_AUTHTOKEN: str | None = None
 

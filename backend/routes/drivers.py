@@ -1,27 +1,20 @@
 """
 routers/drivers.py
-Fleet Management System — Phase 4 (revised Phase 8)
+Fleet Management System
 
-Endpoints
-─────────
-GET    /drivers                         paginated list          (ADMIN, DISPATCHER)
-POST   /drivers                         create atomically       (ADMIN)
-GET    /drivers/summary                 aggregate counts        (ADMIN, DISPATCHER)
-GET    /drivers/{id}                    detail                  (ADMIN, DISPATCHER, DRIVER-own)
-PATCH  /drivers/{id}                    partial update          (ADMIN)
-DELETE /drivers/{id}                    soft-deactivate         (ADMIN)
-GET    /drivers/{id}/documents          list documents          (ADMIN, DISPATCHER, DRIVER-own)
-POST   /drivers/{id}/documents          attach document         (ADMIN)
-DELETE /drivers/{id}/documents/{doc_id} remove document         (ADMIN)
-GET    /drivers/{id}/trips              trip history            (ADMIN, DISPATCHER, DRIVER-own)
+CREATE endpoint change (invite flow):
+  OLD: Created User (role=DRIVER) + Driver atomically, required temp_password.
+  NEW: Accepts an existing user_id from DriverCreate.
+       The User account already exists (created via invite → accept-invite flow).
+       This endpoint only creates the Driver profile row and links it.
 
-Phase 8 changes vs original:
-  CREATE  — no longer requires an existing user_id.  Creates User (role=DRIVER)
-            + Driver in one transaction; rolls both back on any failure.
-  UPDATE  — mirrors first_name / last_name / email changes to the User row.
-  DELETE  — soft-deactivates the linked User (is_active=False) instead of
-            leaving an orphaned login account.  Driver row is still hard-deleted
-            so it no longer appears in fleet lists.
+       Guards:
+         1. user_id must resolve to an existing, active User
+         2. that User must have role == DRIVER
+         3. no Driver profile must already exist for that user_id
+         4. license_number must be unique
+
+All other endpoints (UPDATE, DELETE, documents, trips) are unchanged.
 """
 
 from __future__ import annotations
@@ -31,9 +24,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, or_
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.security import hash_password
 from db.dbconfig import DB
 from db.models import Driver, DriverDocument, Trip, User
 from schemas.common import PaginatedResponse, PaginationMeta, ApiResponse
@@ -99,11 +90,11 @@ async def get_driver_summary(db: DB):
     dependencies=[Depends(require_roles(["ADMIN", "DISPATCHER"]))],
 )
 async def list_drivers(
+    db:        DB,
     page:      int           = Query(1, ge=1),
     page_size: int           = Query(20, ge=1, le=100),
     status:    Optional[str] = Query(None),
     search:    Optional[str] = Query(None),
-    db: DB = None,
 ):
     q = select(Driver)
 
@@ -144,67 +135,88 @@ async def list_drivers(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CREATE  — atomic User + Driver
+# CREATE  — links an existing User to a new Driver profile
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post(
     "",
     response_model=ApiResponse[DriverResponse],
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles(["ADMIN"]))],
 )
-async def create_driver(body: DriverCreate, db: DB):
-    # ── Guard: email must not already exist in Users ───────────────────────
-    existing_user = (
-        await db.execute(select(User).where(User.email == body.email))
-    ).scalar_one_or_none()
-    if existing_user:
+async def create_driver(
+    body:         DriverCreate,
+    db:           DB,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Creates a Driver profile row linked to an existing User account.
+
+    Who can call this:
+      - ADMIN: can create a profile for any DRIVER-role user.
+      - DRIVER: can only create a profile for themselves (their own user_id).
+        This is the self-service path used by /drivers/setup after first login.
+
+    The User account must already exist and have been activated via the
+    invite flow before this endpoint is called.
+    """
+
+    # ── Permission: DRIVER can only create their own profile ──────────────
+    if current_user.role == "DRIVER":
+        if body.user_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Drivers can only create their own profile",
+            )
+    elif current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    # ── Guard 1: user_id must resolve to a real, active User ──────────────
+    user = await db.get(User, body.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.is_active:
         raise HTTPException(
-            status_code=409,
-            detail="A user account with this email already exists",
+            status_code=400,
+            detail="User account is inactive — cannot create a driver profile",
         )
 
-    # ── Guard: license number must be unique ───────────────────────────────
-    existing_driver = (
+    # ── Guard 2: that User must have role DRIVER ───────────────────────────
+    if user.role != "DRIVER":
+        raise HTTPException(
+            status_code=400,
+            detail=f"User role is '{user.role}' — only DRIVER accounts can have a driver profile",
+        )
+
+    # ── Guard 3: no Driver profile must already exist for this user ────────
+    existing_profile = (
+        await db.execute(select(Driver).where(Driver.user_id == body.user_id))
+    ).scalar_one_or_none()
+    if existing_profile:
+        raise HTTPException(
+            status_code=409,
+            detail="A driver profile already exists for this account",
+        )
+
+    # ── Guard 4: license number must be unique across all drivers ──────────
+    existing_license = (
         await db.execute(select(Driver).where(Driver.license_number == body.license_number))
     ).scalar_one_or_none()
-    if existing_driver:
+    if existing_license:
         raise HTTPException(
             status_code=409,
-            detail="License number already registered",
+            detail="License number is already registered to another driver",
         )
 
-    # ── Atomic transaction ─────────────────────────────────────────────────
-    try:
-        # 1. Create the User login account
-        user = User(
-            first_name=body.first_name,
-            last_name=body.last_name,
-            email=body.email,
-            phone=body.phone,
-            role="DRIVER",
-            password=hash_password(body.temp_password),
-            is_active=True,
-            is_verified=True,   # Admin-created — skip email verification
-        )
-        db.add(user)
-        await db.flush()   # Assigns user.id without committing yet
-
-        # 2. Create the Driver profile, linking to the new User
-        driver_data = body.model_dump(exclude={"temp_password"})
-        driver = Driver(**driver_data, user_id=user.id)
-        db.add(driver)
-
-        await db.commit()
-        await db.refresh(driver)
-
-    except Exception:
-        await db.rollback()
-        raise
+    # ── Create the Driver profile (User row already exists — don't touch it) ─
+    driver_data = body.model_dump(exclude={"user_id"})  # user_id set explicitly below
+    driver = Driver(**driver_data, user_id=body.user_id)
+    db.add(driver)
+    await db.commit()
+    await db.refresh(driver)
 
     return ApiResponse(
         data=DriverResponse.model_validate(driver),
-        message=f"Driver {driver.first_name} {driver.last_name} created with login account",
+        message=f"Driver profile created for {driver.first_name} {driver.last_name}",
     )
 
 
@@ -215,8 +227,8 @@ async def create_driver(body: DriverCreate, db: DB):
 @router.get("/{driver_id}", response_model=ApiResponse[DriverResponse])
 async def get_driver(
     driver_id:    str,
-    current_user: User          = Depends(get_current_user),
-    db:  DB = None,
+    current_user: User = Depends(get_current_user),
+    db:           DB   = None,
 ):
     driver = await _get_driver_or_404(driver_id, db)
 
@@ -233,7 +245,7 @@ async def get_driver(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# UPDATE  — mirrors identity fields to User row
+# UPDATE  — mirrors identity fields to the linked User row
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.patch(
@@ -241,11 +253,7 @@ async def get_driver(
     response_model=ApiResponse[DriverResponse],
     dependencies=[Depends(require_roles(["ADMIN"]))],
 )
-async def update_driver(
-    driver_id: str,
-    body:      DriverUpdate,
-    db:        DB,
-):
+async def update_driver(driver_id: str, body: DriverUpdate, db: DB):
     driver = await _get_driver_or_404(driver_id, db)
 
     # License uniqueness guard
@@ -258,8 +266,9 @@ async def update_driver(
         if clash:
             raise HTTPException(status_code=409, detail="License number already registered")
 
-    # Email uniqueness guard (if changing email)
     update_data = body.model_dump(exclude_unset=True)
+
+    # Email uniqueness guard
     if "email" in update_data and update_data["email"] != driver.email:
         clash = (
             await db.execute(
@@ -303,13 +312,9 @@ async def update_driver(
     response_model=ApiResponse[dict],
     dependencies=[Depends(require_roles(["ADMIN"]))],
 )
-async def delete_driver(
-    driver_id: str,
-    db: DB,
-):
+async def delete_driver(driver_id: str, db: DB):
     driver = await _get_driver_or_404(driver_id, db)
 
-    # Guard: cannot delete a driver currently on an active trip
     active_trip = (
         await db.execute(
             select(Trip).where(
@@ -324,15 +329,12 @@ async def delete_driver(
             detail="Cannot delete a driver currently on an active trip",
         )
 
-    # Soft-deactivate the linked User so the login account is revoked
-    # but FK references in trips, fuel logs etc. remain intact.
     linked_user = (
         await db.execute(select(User).where(User.id == driver.user_id))
     ).scalar_one_or_none()
     if linked_user:
         linked_user.is_active = False
 
-    # Hard-delete the Driver profile so they no longer appear in fleet lists
     await db.delete(driver)
     await db.commit()
 
@@ -352,8 +354,8 @@ async def delete_driver(
 )
 async def list_driver_documents(
     driver_id:    str,
-    current_user: User         = Depends(get_current_user),
-    db: DB = None,
+    current_user: User = Depends(get_current_user),
+    db:           DB   = None,
 ):
     await _get_driver_or_404(driver_id, db)
 
@@ -383,8 +385,8 @@ async def list_driver_documents(
 async def upload_driver_document(
     driver_id:    str,
     body:         DriverDocumentCreate,
-    current_user: User         = Depends(get_current_user),
-    db: DB = None,
+    current_user: User = Depends(get_current_user),
+    db:           DB   = None,
 ):
     await _get_driver_or_404(driver_id, db)
 
@@ -408,11 +410,7 @@ async def upload_driver_document(
     response_model=ApiResponse[dict],
     dependencies=[Depends(require_roles(["ADMIN"]))],
 )
-async def delete_driver_document(
-    driver_id: str,
-    doc_id:    str,
-    db: DB,
-):
+async def delete_driver_document(driver_id: str, doc_id: str, db: DB):
     result = await db.execute(
         select(DriverDocument).where(
             DriverDocument.id == doc_id,
@@ -436,10 +434,10 @@ async def delete_driver_document(
 @router.get("/{driver_id}/trips", response_model=PaginatedResponse[dict])
 async def get_driver_trips(
     driver_id:    str,
-    page:         int          = Query(1, ge=1),
-    page_size:    int          = Query(20, ge=1, le=100),
-    current_user: User         = Depends(get_current_user),
-    db: DB = None,
+    current_user: User = Depends(get_current_user),
+    db:           DB   = None,
+    page:         int  = Query(1, ge=1),
+    page_size:    int  = Query(20, ge=1, le=100),
 ):
     await _get_driver_or_404(driver_id, db)
 

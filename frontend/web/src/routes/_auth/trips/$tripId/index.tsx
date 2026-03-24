@@ -28,6 +28,7 @@ import {
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
+import { useOSRMRoute } from "../../../../hooks/useOSRMRoute";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon   from "leaflet/dist/images/marker-icon.png";
@@ -388,35 +389,65 @@ function TripDetailPage() {
 // TRIP ROUTE MAP  — isolated component so Leaflet's z-indexes are contained
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TRIP ROUTE MAP  — isolated component so Leaflet's z-indexes are contained
+// ─────────────────────────────────────────────────────────────────────────────
+
 function TripRouteMap({ trip }: { trip: Trip }) {
-  const hasOrigin   = Boolean(trip.originLat && trip.originLng);
+  const hasOrigin   = Boolean(trip.originLat      && trip.originLng);
   const hasDest     = Boolean(trip.destinationLat && trip.destinationLng);
   const hasLastPing = Boolean(trip.lastPing);
+
+  // ── OSRM road-following route ──────────────────────────────────────────────
+  const osrm = useOSRMRoute({
+    originLat:      trip.originLat,
+    originLng:      trip.originLng,
+    destinationLat: trip.destinationLat,
+    destinationLng: trip.destinationLng,
+    enabled:        hasOrigin && hasDest,
+  });
+
+  // Fallback straight-line positions (used while OSRM loads or on error)
+  const straightLinePositions: LatLngExpression[] = [
+    ...(hasOrigin ? [[trip.originLat!,      trip.originLng!]      as LatLngExpression] : []),
+    ...(hasLastPing ? [[trip.lastPing!.lat, trip.lastPing!.lng]   as LatLngExpression] : []),
+    ...(hasDest   ? [[trip.destinationLat!, trip.destinationLng!] as LatLngExpression] : []),
+  ];
 
   const mapCenter: LatLngExpression = hasOrigin
     ? [trip.originLat!, trip.originLng!]
     : hasLastPing
     ? [trip.lastPing!.lat, trip.lastPing!.lng]
-    : [20, 0];
+    : [1.2921, 36.8219]; // Nairobi default — better than [20, 0] for your region
 
-  const mapZoom = hasOrigin || hasLastPing ? 8 : 2;
+  const mapZoom = hasOrigin || hasLastPing ? 7 : 5;
 
-  const polylinePositions: LatLngExpression[] = [
-    ...(hasOrigin   ? [[trip.originLat!,       trip.originLng!]      as LatLngExpression] : []),
-    ...(hasLastPing ? [[trip.lastPing!.lat,     trip.lastPing!.lng]   as LatLngExpression] : []),
-    ...(hasDest     ? [[trip.destinationLat!,   trip.destinationLng!] as LatLngExpression] : []),
-  ];
+  // OSRM distance/duration for the legend (only shown when OSRM succeeds)
+  const osrmDistanceLabel =
+    osrm.status === "success" && osrm.distanceKm != null
+      ? `Road distance: ${osrm.distanceKm.toFixed(0)} km`
+      : null;
+
+  const osrmDurationLabel =
+    osrm.status === "success" && osrm.durationSecs != null
+      ? `Est. drive: ${Math.round(osrm.durationSecs / 3600)} h ${Math.round((osrm.durationSecs % 3600) / 60)} min`
+      : null;
 
   return (
     <div className="bg-card p-4 rounded-lg border">
       <h3 className="font-medium mb-3 flex items-center gap-2 text-sm">
-        <Navigation className="h-4 w-4" />Route Map
+        <Navigation className="h-4 w-4" />
+        Route Map
+        {osrm.status === "loading" && (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-1" />
+        )}
+        {osrm.status === "error" && (
+          <span className="text-xs text-amber-600 font-normal ml-1">
+            (road routing unavailable — showing straight line)
+          </span>
+        )}
       </h3>
-      {/*
-        isolation-isolate creates a new stacking context that contains
-        Leaflet's internal z-indexes so the map never floats above the
-        topbar (z-40) or over sheets/modals.
-      */}
+
       <div className="rounded-md overflow-hidden" style={{ isolation: "isolate" }}>
         <MapContainer
           center={mapCenter}
@@ -429,16 +460,22 @@ function TripRouteMap({ trip }: { trip: Trip }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
           />
+
+          {/* Origin marker */}
           {hasOrigin && (
             <Marker position={[trip.originLat!, trip.originLng!]} icon={greenIcon}>
               <Popup><strong>Origin</strong><br />{trip.origin}</Popup>
             </Marker>
           )}
+
+          {/* Destination marker */}
           {hasDest && (
             <Marker position={[trip.destinationLat!, trip.destinationLng!]} icon={redIcon}>
               <Popup><strong>Destination</strong><br />{trip.destination}</Popup>
             </Marker>
           )}
+
+          {/* Last-known truck location — always shown independently */}
           {hasLastPing && (
             <Marker position={[trip.lastPing!.lat, trip.lastPing!.lng]} icon={truckIcon}>
               <Popup>
@@ -447,19 +484,42 @@ function TripRouteMap({ trip }: { trip: Trip }) {
               </Popup>
             </Marker>
           )}
-          {polylinePositions.length >= 2 && (
+
+          {/*
+            OSRM road-following polyline — shown when route is loaded.
+            Falls back to straight dashed line while loading or on error.
+          */}
+          {osrm.status === "success" && osrm.polyline.length >= 2 ? (
             <Polyline
-              positions={polylinePositions}
-              pathOptions={{ color: "#3b82f6", weight: 3, dashArray: "8 4" }}
+              positions={osrm.polyline as LatLngExpression[]}
+              pathOptions={{ color: "#3b82f6", weight: 4, opacity: 0.85 }}
             />
+          ) : (
+            straightLinePositions.length >= 2 && (
+              <Polyline
+                positions={straightLinePositions}
+                pathOptions={{ color: "#3b82f6", weight: 2, dashArray: "8 4", opacity: 0.6 }}
+              />
+            )
           )}
         </MapContainer>
       </div>
+
+      {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
         {hasOrigin   && <LegendDot color="bg-green-500"  label="Origin" />}
         {hasDest     && <LegendDot color="bg-red-500"    label="Destination" />}
         {hasLastPing && (
-          <LegendDot color="bg-yellow-400" label={`Last Location (${formatDate(trip.lastPing!.recordedAt, "time")})`} />
+          <LegendDot
+            color="bg-yellow-400"
+            label={`Last Location (${formatDate(trip.lastPing!.recordedAt, "time")})`}
+          />
+        )}
+        {osrmDistanceLabel && (
+          <span className="text-blue-600 font-medium">{osrmDistanceLabel}</span>
+        )}
+        {osrmDurationLabel && (
+          <span className="text-blue-600">{osrmDurationLabel}</span>
         )}
         {!hasOrigin && !hasDest && !hasLastPing && (
           <span className="italic">

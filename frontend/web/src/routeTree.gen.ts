@@ -23,6 +23,7 @@ import { Route as AuthDriversIndexRouteImport } from './routes/_auth/drivers/ind
 import { Route as AuthTripsNewRouteImport } from './routes/_auth/trips/new'
 import { Route as AuthSettingsSystemRouteImport } from './routes/_auth/settings/system'
 import { Route as AuthSettingsProfileRouteImport } from './routes/_auth/settings/profile'
+import { Route as AuthDriversSetupRouteImport } from './routes/_auth/drivers/setup'
 import { Route as AuthDriversNewRouteImport } from './routes/_auth/drivers/new'
 import { Route as AuthTripsTripIdIndexRouteImport } from './routes/_auth/trips/$tripId/index'
 import { Route as AuthSettingsUsersIndexRouteImport } from './routes/_auth/settings/users/index'
@@ -116,6 +117,11 @@ const AuthSettingsSystemRoute = AuthSettingsSystemRouteImport.update({
 const AuthSettingsProfileRoute = AuthSettingsProfileRouteImport.update({
   id: '/settings/profile',
   path: '/settings/profile',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthDriversSetupRoute = AuthDriversSetupRouteImport.update({
+  id: '/drivers/setup',
+  path: '/drivers/setup',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthDriversNewRoute = AuthDriversNewRouteImport.update({
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
+  '/drivers/setup': typeof AuthDriversSetupRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
   '/trips/new': typeof AuthTripsNewRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
+  '/drivers/setup': typeof AuthDriversSetupRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
   '/trips/new': typeof AuthTripsNewRoute
@@ -345,6 +353,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/drivers/new': typeof AuthDriversNewRoute
+  '/_auth/drivers/setup': typeof AuthDriversSetupRoute
   '/_auth/settings/profile': typeof AuthSettingsProfileRoute
   '/_auth/settings/system': typeof AuthSettingsSystemRoute
   '/_auth/trips/new': typeof AuthTripsNewRoute
@@ -387,6 +396,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard'
     | '/drivers/new'
+    | '/drivers/setup'
     | '/settings/profile'
     | '/settings/system'
     | '/trips/new'
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard'
     | '/drivers/new'
+    | '/drivers/setup'
     | '/settings/profile'
     | '/settings/system'
     | '/trips/new'
@@ -468,6 +479,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_auth/dashboard'
     | '/_auth/drivers/new'
+    | '/_auth/drivers/setup'
     | '/_auth/settings/profile'
     | '/_auth/settings/system'
     | '/_auth/trips/new'
@@ -608,6 +620,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof AuthSettingsProfileRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/drivers/setup': {
+      id: '/_auth/drivers/setup'
+      path: '/drivers/setup'
+      fullPath: '/drivers/setup'
+      preLoaderRoute: typeof AuthDriversSetupRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/drivers/new': {
@@ -791,6 +810,7 @@ declare module '@tanstack/react-router' {
 interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthDriversNewRoute: typeof AuthDriversNewRoute
+  AuthDriversSetupRoute: typeof AuthDriversSetupRoute
   AuthSettingsProfileRoute: typeof AuthSettingsProfileRoute
   AuthSettingsSystemRoute: typeof AuthSettingsSystemRoute
   AuthTripsNewRoute: typeof AuthTripsNewRoute
@@ -828,6 +848,7 @@ interface AuthRouteChildren {
 const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
   AuthDriversNewRoute: AuthDriversNewRoute,
+  AuthDriversSetupRoute: AuthDriversSetupRoute,
   AuthSettingsProfileRoute: AuthSettingsProfileRoute,
   AuthSettingsSystemRoute: AuthSettingsSystemRoute,
   AuthTripsNewRoute: AuthTripsNewRoute,

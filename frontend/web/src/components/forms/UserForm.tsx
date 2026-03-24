@@ -1,15 +1,14 @@
 /**
  * components/forms/UserForm.tsx
- * Fleet Management System — Phase 8
+ * Fleet Management System
  *
- * Shared form used by:
- *   /settings/users/new
- *   /settings/users/$userId/edit
- *
- * - Mode detection via presence of `initial` prop
- * - Driver role shows contextual warning with link to Drivers module
- * - Password fields only appear in create mode
- * - isActive toggle only appears in edit mode (and only if not editing yourself)
+ * Changes from previous version:
+ *   - Added `defaultRole?: UserRole` prop.
+ *     Used by /settings/users/new when redirected from /drivers/new
+ *     so the role dropdown is pre-selected without user interaction.
+ *   - DRIVER advisory alert updated: now points to /settings/users/new
+ *     instead of /drivers/new (which is itself a redirect shim).
+ *   - Everything else unchanged.
  */
 
 import { useState } from "react";
@@ -19,11 +18,8 @@ import { Button }   from "../ui/button";
 import { Input }    from "../ui/input";
 import { Label }    from "../ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue,
 } from "../ui/select";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Separator } from "../ui/separator";
@@ -37,11 +33,18 @@ import type { User, UserCreatePayload, UserUpdatePayload } from "../../types/use
 
 interface UserFormProps {
   /** Present in edit mode — undefined in create mode */
-  initial?:    User;
+  initial?:     User;
   /** Whether the form is editing the currently logged-in user */
-  isSelf?:     boolean;
-  onSubmit:    (data: UserCreatePayload | UserUpdatePayload) => Promise<void>;
-  isLoading:   boolean;
+  isSelf?:      boolean;
+  /**
+   * Pre-select a role in create mode.
+   * Passed by /settings/users/new when redirected from /drivers/new
+   * so the admin doesn't have to change the dropdown manually.
+   * Ignored in edit mode (initial.role takes precedence).
+   */
+  defaultRole?: UserRole;
+  onSubmit:     (data: UserCreatePayload | UserUpdatePayload) => Promise<void>;
+  isLoading:    boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,17 +52,10 @@ interface UserFormProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Field({
-  label,
-  required,
-  error,
-  hint,
-  children,
+  label, required, error, hint, children,
 }: {
-  label:     string;
-  required?: boolean;
-  error?:    string;
-  hint?:     string;
-  children:  React.ReactNode;
+  label: string; required?: boolean; error?: string;
+  hint?: string; children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
@@ -68,12 +64,8 @@ function Field({
         {required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
       {children}
-      {hint && !error && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {hint  && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {error &&           <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -82,16 +74,24 @@ function Field({
 // FORM
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserFormProps) {
+export function UserForm({
+  initial,
+  isSelf = false,
+  defaultRole,
+  onSubmit,
+  isLoading,
+}: UserFormProps) {
   const navigate   = useNavigate();
   const isEditMode = Boolean(initial);
 
-  const [firstName,  setFirstName]  = useState(initial?.firstName ?? "");
-  const [lastName,   setLastName]   = useState(initial?.lastName  ?? "");
-  const [email,      setEmail]      = useState(initial?.email     ?? "");
-  const [role,       setRole]       = useState<UserRole>(initial?.role ?? "DRIVER");
-  const [phone,      setPhone]      = useState(initial?.phone     ?? "");
-  const [isActive,   setIsActive]   = useState(initial?.isActive  ?? true);
+  const [firstName, setFirstName] = useState(initial?.firstName ?? "");
+  const [lastName,  setLastName]  = useState(initial?.lastName  ?? "");
+  const [email,     setEmail]     = useState(initial?.email     ?? "");
+  const [phone,     setPhone]     = useState(initial?.phone     ?? "");
+  const [isActive,  setIsActive]  = useState(initial?.isActive  ?? true);
+  const [role, setRole] = useState<UserRole>(
+    initial?.role ?? defaultRole ?? "DRIVER"
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -134,7 +134,7 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
 
-      {/* ── IDENTITY ─────────────────────────────────────────────────────── */}
+      {/* ── IDENTITY ────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -147,7 +147,7 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
           <Field label="First Name" required error={errors.firstName}>
             <Input
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={e => setFirstName(e.target.value)}
               placeholder="James"
               className={errors.firstName ? "border-destructive" : ""}
             />
@@ -156,7 +156,7 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
           <Field label="Last Name" required error={errors.lastName}>
             <Input
               value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              onChange={e => setLastName(e.target.value)}
               placeholder="Mwangi"
               className={errors.lastName ? "border-destructive" : ""}
             />
@@ -166,7 +166,7 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
             <Input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               placeholder="james@company.com"
               className={errors.email ? "border-destructive" : ""}
             />
@@ -175,14 +175,14 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
           <Field label="Phone" hint="Optional">
             <Input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={e => setPhone(e.target.value)}
               placeholder="+254 7xx xxx xxx"
             />
           </Field>
         </div>
       </section>
 
-      {/* ── ROLE ─────────────────────────────────────────────────────────── */}
+      {/* ── ROLE ────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -198,14 +198,14 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
         >
           <Select
             value={role}
-            onValueChange={(v) => setRole(v as UserRole)}
+            onValueChange={v => setRole(v as UserRole)}
             disabled={isSelf}
           >
             <SelectTrigger className="w-full sm:w-72">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {USER_ROLES.map((r) => (
+              {USER_ROLES.map(r => (
                 <SelectItem key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </SelectItem>
@@ -214,28 +214,21 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
           </Select>
         </Field>
 
-        {/* DRIVER role advisory */}
-        {role === "DRIVER" && (
-          <Alert className="border-amber-200 bg-amber-50 text-amber-800">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
+        {/* DRIVER advisory */}
+        {role === "DRIVER" && !isEditMode && (
+          <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="text-sm">
-              Driver accounts work best when created through the{" "}
-              <Link
-                to="/drivers/new"
-                className="font-semibold underline underline-offset-2 hover:text-amber-900"
-              >
-                Drivers module
-              </Link>
-              , which also sets up the driver profile — licence details, vehicle
-              assignment, and compliance records. Creating a user here will grant
-              system access but will not create a driver profile.
+              After accepting their invite, the driver will be prompted to complete
+              their own license and contact details on first login. No extra action
+              needed from you.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* General role info for non-driver roles */}
-        {role !== "DRIVER" && (
-          <Alert className="border-blue-100 bg-blue-50 text-blue-700">
+        {/* General role info */}
+        {(role !== "DRIVER" || isEditMode) && (
+          <Alert className="border-blue-100 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-sm">
               Role determines which modules and actions this user can access.
@@ -254,10 +247,11 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
             </h3>
             <Separator className="mt-2" />
           </div>
-          <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-blue-800">
+          <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4 text-blue-800 dark:text-blue-300">
             <Mail className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
             <p className="text-sm leading-relaxed">
-              An invite email will be sent to <strong>{email || "the user's email"}</strong>.
+              An invite email will be sent to{" "}
+              <strong>{email.trim() || "the user's email"}</strong>.
               They'll set their own password when they accept the invite.
               The link expires in <strong>7 days</strong>.
             </p>
@@ -290,11 +284,11 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
               type="button"
               variant={isActive ? "destructive" : "outline"}
               size="sm"
-              onClick={() => setIsActive((v) => !v)}
+              onClick={() => setIsActive(v => !v)}
               className="gap-1.5"
             >
               {isActive
-                ? <><UserX className="h-3.5 w-3.5" /> Deactivate</>
+                ? <><UserX  className="h-3.5 w-3.5" /> Deactivate</>
                 : <><UserCheck className="h-3.5 w-3.5" /> Reactivate</>}
             </Button>
           </div>
@@ -311,12 +305,9 @@ export function UserForm({ initial, isSelf = false, onSubmit, isLoading }: UserF
         >
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={isLoading}
-        >
+        <Button type="submit" disabled={isLoading}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEditMode ? "Save Changes" : "Create User"}
+          {isEditMode ? "Save Changes" : "Send Invite"}
         </Button>
       </div>
     </form>

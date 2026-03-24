@@ -25,7 +25,6 @@ import api from '../lib/api'
 import type {
   Driver,
   DriverCreate,
-  DriverAdminCreate,
   DriverUpdate,
   DriverDocument,
   DriverDocumentCreate,
@@ -107,7 +106,7 @@ export function useDriver(driverId: string | undefined) {
 export function useCreateDriver() {
   const qc = useQueryClient()
 
-  return useMutation<ApiResponse<Driver>, Error, DriverAdminCreate>({
+  return useMutation<ApiResponse<Driver>, Error, DriverCreate>({
     mutationFn: (body) =>
       api.post<ApiResponse<Driver>>('/api/v1/drivers', body).then(r => r.data),
 

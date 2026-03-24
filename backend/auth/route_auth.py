@@ -1,3 +1,7 @@
+"""
+auth/route_auth.py  —
+Fleet Management System
+"""
 from datetime import datetime
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
@@ -19,28 +23,46 @@ from auth.deps import get_current_user
 from core.config import get_settings
 from core.rate_limiter import limiter
 from db.dbconfig import DB
-from db.models import User
+from db.models import User, Driver                    # ← added Driver
 from schemas.auth import LoginRequest, RegisterRequest, ForgetPasswordRequest, PasswordResetConfirm, LoginResponse
 from schemas.users import UserResponse, AcceptInviteRequest, InviteInfoResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
+
 # ─── GET /auth/me ─────────────────────────────────────────────────────────────
+
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: Annotated[User, Depends(get_current_user)]):
+async def me(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: DB,                                             # ← added
+):
     """
     Returns the currently authenticated user.
     Called by auth-context.tsx on every page load to hydrate the session.
-    Requires a valid access_token cookie.
+
+    Includes driver_profile_id for DRIVER accounts — the frontend uses this
+    to detect incomplete profiles and redirect to /drivers/setup.
+    For all other roles driver_profile_id is always None.
     """
-    return current_user
+    driver_profile_id: str | None = None
+
+    if current_user.role == "DRIVER":
+        result = await db.execute(
+            select(Driver.id).where(Driver.user_id == current_user.id)
+        )
+        driver_profile_id = result.scalar_one_or_none()
+
+    base = UserResponse.model_validate(current_user)
+    return base.model_copy(update={"driver_profile_id": driver_profile_id})
 
 
 # ─── POST /auth/token (login) ─────────────────────────────────────────────────
+
 @router.post("/token", response_model=LoginResponse)
 @limiter.limit("100 per minute")
-async def login(request: Request , response: Response, login_request: LoginRequest, db: DB):
+async def login(request: Request, response: Response, login_request: LoginRequest, db: DB):
     result = await db.execute(select(User).where(User.email == login_request.email))
     user = result.scalar_one_or_none()
 
@@ -65,19 +87,19 @@ async def login(request: Request , response: Response, login_request: LoginReque
     await db.commit()
     await db.refresh(user)
 
-    # Issue tokens into HttpOnly cookies — NOT in the response body
     data = {"role": user.role, "email": user.email}
     access_token  = create_access_token(data)
     refresh_token = create_refresh_token(data)
     set_auth_cookies(response, access_token, refresh_token)
 
-    # Return user object — frontend auth-context sets this as the current user
     return LoginResponse(
         message="Login successful",
         user=UserResponse.model_validate(user),
     )
 
+
 # ─── POST /auth/logout ────────────────────────────────────────────────────────
+
 @router.post("/logout")
 def logout(response: Response):
     clear_auth_cookies(response)
@@ -85,6 +107,7 @@ def logout(response: Response):
 
 
 # ─── POST /auth/refresh ───────────────────────────────────────────────────────
+
 @router.post("/refresh")
 async def refresh(request: Request, response: Response):
     refresh_token = request.cookies.get("refresh_token")
@@ -109,6 +132,7 @@ async def refresh(request: Request, response: Response):
 
 
 # ─── POST /auth/forgot_password ───────────────────────────────────────────────
+
 @router.post("/forgot_password")
 async def forgot_password(request: ForgetPasswordRequest, db: DB, background_tasks: BackgroundTasks):
     result = await db.execute(select(User).where(User.email == request.email))
@@ -123,6 +147,7 @@ async def forgot_password(request: ForgetPasswordRequest, db: DB, background_tas
 
 
 # ─── POST /auth/verify_email ──────────────────────────────────────────────────
+
 @router.post("/verify_email")
 async def verify_email(token: str, db: DB):
     result = await db.execute(select(User).where(User.email_verification_token == token))
@@ -137,6 +162,7 @@ async def verify_email(token: str, db: DB):
 
 
 # ─── POST /auth/reset_password ────────────────────────────────────────────────
+
 @router.post("/reset_password")
 async def reset_password(payload: PasswordResetConfirm, db: DB):
     decoded = decode_token(payload.token)
@@ -153,12 +179,13 @@ async def reset_password(payload: PasswordResetConfirm, db: DB):
     await db.commit()
     return {"message": "Password reset successful — you can now log in"}
 
+
 # ─── GET /auth/invite-info ────────────────────────────────────────────────────
+
 @router.get("/invite-info", response_model=InviteInfoResponse)
 async def invite_info(token: str, db: DB):
     """
-    Validates an invite token and returns the user's pre-filled info
-    so the accept-invite page can display their name and email.
+    Validates an invite token and returns the user's pre-filled info.
     Does NOT mark the token as used — that happens on accept.
     """
     result = await db.execute(
@@ -171,14 +198,15 @@ async def invite_info(token: str, db: DB):
         raise HTTPException(400, "This invite has already been accepted.")
 
     return InviteInfoResponse(
-        first_name = user.first_name,
-        last_name  = user.last_name,
-        email      = user.email,
-        role       = user.role,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        role=user.role,
     )
 
 
 # ─── POST /auth/accept-invite ─────────────────────────────────────────────────
+
 @router.post("/accept-invite", response_model=UserResponse)
 async def accept_invite(payload: AcceptInviteRequest, db: DB):
     """
@@ -198,10 +226,8 @@ async def accept_invite(payload: AcceptInviteRequest, db: DB):
     if getattr(user, "status", "active") != "pending":
         raise HTTPException(400, "This invite has already been accepted.")
 
-    # Set password
     user.password = hash_password(payload.password)
 
-    # Let user confirm/update their own contact info
     if payload.first_name and payload.first_name.strip():
         user.first_name = payload.first_name.strip()
     if payload.last_name and payload.last_name.strip():
@@ -209,7 +235,6 @@ async def accept_invite(payload: AcceptInviteRequest, db: DB):
     if payload.phone is not None:
         user.phone = payload.phone.strip() or None
 
-    # Activate the account
     user.status      = "active"
     user.is_verified = True
     user.email_verification_token = None
