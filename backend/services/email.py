@@ -67,7 +67,7 @@ settings = get_settings()
 
 # ── Resolve which provider to use ─────────────────────────────────────────────
 
-_PROVIDER = getattr(settings, "MAIL_PROVIDER", "gmail").lower()  # "gmail" | "mailtrap"
+_PROVIDER = getattr(settings, "MAIL_PROVIDER", "gmail") # "gmail" | "mailtrap"
 
 if _PROVIDER == "mailtrap":
     _MAIL_USERNAME  = getattr(settings, "MAILTRAP_USERNAME", "")
