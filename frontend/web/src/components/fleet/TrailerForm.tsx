@@ -111,7 +111,7 @@ export function TrailerForm({ defaultValues, onSubmit, isLoading, onCancel, onIm
       }
       const data = await res.json();
       const url: string = data.imageUrl ?? data.image_url ?? "";
-      setImgPreview(url);
+      setImgPreview(getStaticUrl(url) ?? url);
       onImageUploaded?.(url);
     } catch (e: any) {
       setImgError(e.message ?? "Upload failed");

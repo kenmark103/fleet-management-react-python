@@ -2,9 +2,10 @@
  * routes/_auth/drivers/index.tsx
  * Fleet Management System — Phase 4 (revised Phase 8)
  *
- * Fix:
- *   - DriverCard now calls usePermission() internally instead of receiving
- *     `can` as a prop — eliminates PermissionAction vs string type conflict
+ * Fixes:
+ *   - "Add Driver" button moved from PageHeader actions → inline with filters (ml-auto)
+ *   - Pagination guard changed from `totalPages > 1` → always show when meta exists
+ *     (matches maintenance pattern — Previous/Next are disabled, not hidden)
  */
 
 import { useState } from "react";
@@ -63,10 +64,10 @@ function SummaryCards() {
   const summary = data?.data;
 
   const cards = [
-    { label: "Total Drivers",          value: summary?.totalDrivers      ?? 0, icon: Users,          color: "text-blue-600",   bg: "bg-blue-50" },
-    { label: "Active",                  value: summary?.activeDrivers     ?? 0, icon: UserCheck,      color: "text-green-600",  bg: "bg-green-50" },
-    { label: "Inactive",                value: summary?.inactiveDrivers   ?? 0, icon: UserX,          color: "text-gray-500",   bg: "bg-gray-50" },
-    { label: "Licenses Expiring (30d)", value: summary?.expiringLicenses30d ?? 0, icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50" },
+    { label: "Total Drivers",          value: summary?.totalDrivers        ?? 0, icon: Users,          color: "text-blue-600",   bg: "bg-blue-50" },
+    { label: "Active",                  value: summary?.activeDrivers       ?? 0, icon: UserCheck,      color: "text-green-600",  bg: "bg-green-50" },
+    { label: "Inactive",                value: summary?.inactiveDrivers     ?? 0, icon: UserX,          color: "text-gray-500",   bg: "bg-gray-50" },
+    { label: "Licenses Expiring (30d)", value: summary?.expiringLicenses30d ?? 0, icon: AlertTriangle,  color: "text-yellow-600", bg: "bg-yellow-50" },
   ];
 
   return (
@@ -110,7 +111,7 @@ function LicenseExpiryCell({ date }: { date: string }) {
   const isExpiringSoon = checkExpiringSoon(date, 30);
   return (
     <span className={
-      isExpired ? "text-destructive font-medium"
+      isExpired      ? "text-destructive font-medium"
       : isExpiringSoon ? "text-yellow-600 font-medium"
       : "text-foreground"
     }>
@@ -124,7 +125,7 @@ function DriverAvatar({ driver }: { driver: Driver }) {
   return (
     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold text-muted-foreground overflow-hidden">
       {driver.avatarUrl ? (
-        <img  src={getStaticUrl(driver.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover" />
+        <img src={getStaticUrl(driver.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover" />
       ) : (
         `${driver.firstName[0]}${driver.lastName[0]}`
       )}
@@ -134,22 +135,19 @@ function DriverAvatar({ driver }: { driver: Driver }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOBILE CARD
-// ✅ Fix: calls usePermission() directly — no `can` prop needed
-//    This avoids the PermissionAction vs string type mismatch
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DriverCard({
   driver,
   onDelete,
 }: {
-  driver: Driver;
+  driver:   Driver;
   onDelete: (driver: Driver) => void;
 }) {
-  const { can } = usePermission();   // ✅ called here, not passed as prop
+  const { can } = usePermission();
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-3">
-      {/* Row 1: Avatar + name + status */}
       <div className="flex items-center gap-3">
         <DriverAvatar driver={driver} />
         <div className="flex-1 min-w-0">
@@ -163,13 +161,11 @@ function DriverCard({
         <DriverStatusBadge status={driver.status} />
       </div>
 
-      {/* Row 2: Contact */}
       <div className="text-sm text-muted-foreground space-y-0.5">
         <p className="truncate">{driver.email}</p>
         <p>{driver.phone}</p>
       </div>
 
-      {/* Row 3: License */}
       <div className="flex items-center justify-between text-sm">
         <div>
           <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
@@ -180,7 +176,6 @@ function DriverCard({
         <LicenseExpiryCell date={driver.licenseExpiryDate} />
       </div>
 
-      {/* Row 4: Hire date + actions */}
       <div className="flex items-center justify-between pt-1 border-t">
         <p className="text-xs text-muted-foreground">
           Hired {formatDate(new Date(driver.hireDate), "short")}
@@ -236,9 +231,8 @@ function DriversPage() {
 
   const deleteDriver = useDeleteDriver();
 
-  const drivers    = data?.data ?? [];
-  const meta       = data?.meta;
-  const totalPages = meta?.totalPages ?? 1;
+  const drivers = data?.data ?? [];
+  const meta    = data?.meta;
 
   const handleSearch = (val: string) => { setSearch(val); setPage(1); };
   const handleStatus = (val: string) => { setStatusFilter(val); setPage(1); };
@@ -246,25 +240,16 @@ function DriversPage() {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* ── Header — no actions prop, button moved below ─────────────────── */}
       <PageHeader
         title="Drivers"
         subtitle="Manage driver profiles, licenses, and documents."
         icon={<Users className="h-6 w-6" />}
-        actions={
-          can("drivers:create") ? (
-            <Button asChild size="sm">
-              <Link to="/drivers/new">
-                <Plus className="h-4 w-4 mr-2" />Add Driver
-              </Link>
-            </Button>
-          ) : undefined
-        }
       />
 
       <SummaryCards />
 
-      {/* Filters */}
+      {/* ── Filters + Add Driver button ──────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -285,9 +270,18 @@ function DriversPage() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* ── Add Driver button — right-aligned, matches maintenance pattern ── */}
+        {can("drivers:create") && (
+          <Button asChild size="sm" className="ml-auto">
+            <Link to="/drivers/new">
+              <Plus className="h-4 w-4 mr-2" />Add Driver
+            </Link>
+          </Button>
+        )}
       </div>
 
-      {/* Mobile: card list */}
+      {/* ── Mobile: card list ────────────────────────────────────────────── */}
       <div className="space-y-3 sm:hidden">
         {isLoading && <p className="text-center py-12 text-muted-foreground text-sm">Loading drivers…</p>}
         {isError   && <p className="text-center py-12 text-destructive text-sm">Failed to load drivers.</p>}
@@ -299,7 +293,7 @@ function DriversPage() {
         ))}
       </div>
 
-      {/* Desktop: table */}
+      {/* ── Desktop: table ───────────────────────────────────────────────── */}
       <div className="hidden sm:block rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
@@ -378,16 +372,24 @@ function DriversPage() {
         </Table>
       </div>
 
-      {/* Pagination */}
-      {meta && totalPages > 1 && (
+      {/* ── Pagination — always visible when meta exists (matches maintenance) ─ */}
+      {meta && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{meta.totalItems} driver{meta.totalItems !== 1 ? "s" : ""}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={!meta.hasPreviousPage} onClick={() => setPage((p) => p - 1)}>
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasPreviousPage}
+              onClick={() => setPage((p) => p - 1)}
+            >
               Previous
             </Button>
             <span className="px-2 hidden sm:inline">Page {meta.page} of {meta.totalPages}</span>
-            <Button variant="outline" size="sm" disabled={!meta.hasNextPage} onClick={() => setPage((p) => p + 1)}>
+            <Button
+              variant="outline" size="sm"
+              disabled={!meta.hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+            >
               Next
             </Button>
           </div>

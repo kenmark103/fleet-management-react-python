@@ -2,10 +2,10 @@
  * routes/_auth/fleet/trailers/index.tsx
  * Route: /fleet/trailers
  *
- * Changes:
- *   - useTrailers now receives params (page, pageSize, search, status)
- *   - Client-side filter removed — search is now server-side via params
- *   - Pagination UI block added (matches maintenance pattern exactly)
+ * Fixes:
+ *   - Subtitle changed from dynamic count to static description
+ *   - Pagination guard changed from `meta.totalPages > 1` → always show when meta exists
+ *     (matches maintenance pattern: Previous/Next disabled on single page, not hidden)
  */
 
 import { useState } from "react";
@@ -116,7 +116,7 @@ function TrailersIndex() {
     <div className="space-y-6">
       <PageHeader
         title="Trailers"
-        subtitle={`${meta?.totalItems ?? trailers.length} trailers registered`}
+        subtitle="Manage and track your trailer fleet"
         icon={<Container className="h-6 w-6" />}
         actions={
           <div className="flex gap-2">
@@ -150,8 +150,8 @@ function TrailersIndex() {
         emptyDescription="Add your first trailer to get started."
       />
 
-      {/* Pagination — matches maintenance pattern */}
-      {meta && meta.totalPages > 1 && (
+      {/* ── Pagination — always visible when meta exists (matches maintenance) ─ */}
+      {meta && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{meta.totalItems} trailer{meta.totalItems !== 1 ? "s" : ""}</span>
           <div className="flex gap-2">

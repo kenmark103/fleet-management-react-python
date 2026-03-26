@@ -1,22 +1,23 @@
 /**
  * routes/_auth/trips/index.tsx
- * Fleet Management System — Phase 5
+ * Fleet Management System
  *
- * UI improvements:
- *   - PageHeader with Navigation icon (matches app pattern)
- *   - Consolidated params state (page, search, status in one object)
- *   - Mobile card layout (replaces 6-col table on small screens)
- *   - Table styled consistently: rounded-xl, muted header, hover rows
- *   - Pagination matches maintenance: justify-between, count left, buttons right
- *   - Search + status filter reset page to 1 on change
+ * Fixes:
+ *   - Stat cards added: Total, Pending, En-Route, Completed, Cancelled
+ *   - "Create Trip" button moved from PageHeader actions → inline with filters (ml-auto)
+ *   - Pagination now shows even on page 1 (matches maintenance pattern, removed `> 1` guard)
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Search, MapPin, Truck, User, Navigation } from "lucide-react";
+import {
+  Plus, Search, MapPin, Truck, User, Navigation,
+  Clock, CheckCircle2, XCircle, BarChart3,
+} from "lucide-react";
 import { useTrips } from "../../../hooks/useTrips";
 import { usePermission } from "../../../hooks/usePermission";
 import { StatusBadge } from "../../../components/atoms/StatusBadge";
+import { StatCard } from "../../../components/molecules/StatCard";
 import { PageHeader } from "../../../components/molecules/PageHeader";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -43,20 +44,12 @@ export const Route = createFileRoute("/_auth/trips/")({
   component: TripsListPage,
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PARAMS STATE
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface TripsParams {
-  page:     number
-  pageSize: number
-  search?:  string
-  status?:  TripStatus
+  page:     number;
+  pageSize: number;
+  search?:  string;
+  status?:  TripStatus;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ROUTE CELL — origin → destination (shared between card + table)
-// ─────────────────────────────────────────────────────────────────────────────
 
 function RouteCell({ origin, destination }: { origin: string; destination: string }) {
   return (
@@ -70,27 +63,15 @@ function RouteCell({ origin, destination }: { origin: string; destination: strin
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MOBILE CARD
-// ─────────────────────────────────────────────────────────────────────────────
-
 function TripCard({ trip }: { trip: Trip }) {
   return (
     <Link to="/trips/$tripId" params={{ tripId: trip.id }}>
       <div className="rounded-xl border bg-card p-4 space-y-3 hover:bg-muted/30 transition-colors">
-
-        {/* Row 1: trip number + status */}
         <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-sm text-primary">
-            {trip.tripNumber}
-          </span>
+          <span className="font-semibold text-sm text-primary">{trip.tripNumber}</span>
           <StatusBadge status={trip.status} />
         </div>
-
-        {/* Row 2: route */}
         <RouteCell origin={trip.origin} destination={trip.destination} />
-
-        {/* Row 3: driver + truck */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <User className="h-3.5 w-3.5 shrink-0" />
@@ -101,8 +82,6 @@ function TripCard({ trip }: { trip: Trip }) {
             <span>{trip.assignedTruckPlate || "—"}</span>
           </div>
         </div>
-
-        {/* Row 4: departure */}
         <p className="text-xs text-muted-foreground border-t pt-2">
           Departure: {formatDate(trip.scheduledDeparture)}
         </p>
@@ -111,21 +90,23 @@ function TripCard({ trip }: { trip: Trip }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAGE
-// ─────────────────────────────────────────────────────────────────────────────
-
 function TripsListPage() {
   const { can } = usePermission();
-
   const [params, setParams] = useState<TripsParams>({ page: 1, pageSize: 20 });
 
+  // Main list query
   const { data, isLoading } = useTrips({
     status:   params.status,
     search:   params.search,
     page:     params.page,
     pageSize: params.pageSize,
   });
+
+  // ── Status count queries (pageSize:1 — we only need meta.totalItems) ──────
+  const { data: pendingData }   = useTrips({ status: "pending",   pageSize: 1 });
+  const { data: enRouteData }   = useTrips({ status: "en-route",  pageSize: 1 });
+  const { data: completedData } = useTrips({ status: "completed", pageSize: 1 });
+  const { data: cancelledData } = useTrips({ status: "cancelled", pageSize: 1 });
 
   const trips = data?.data ?? [];
   const meta  = data?.meta;
@@ -134,29 +115,53 @@ function TripsListPage() {
     setParams((p) => ({ ...p, page: 1, search: val || undefined }));
 
   const handleStatus = (val: string) =>
-    setParams((p) => ({ ...p, page: 1, status: val === "all" ? undefined : val as TripStatus }));
+    setParams((p) => ({ ...p, page: 1, status: val === "all" ? undefined : (val as TripStatus) }));
 
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <PageHeader
         title="Trips & Dispatch"
         subtitle="Manage fleet trips and monitor progress"
         icon={<Navigation className="h-6 w-6" />}
-        actions={
-          can("trips:create") && (
-            <Link to="/trips/new">
-              <Button size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Trip
-              </Button>
-            </Link>
-          )
-        }
       />
 
-      {/* Filters */}
+      {/* ── Stat cards ──────────────────────────────────────────────────────── */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
+        <StatCard
+          title="Total Trips"
+          value={meta?.totalItems ?? 0}
+          icon={BarChart3}
+          color="blue"
+        />
+        <StatCard
+          title="Pending"
+          value={pendingData?.meta?.totalItems ?? 0}
+          icon={Clock}
+          color="amber"
+        />
+        <StatCard
+          title="En Route"
+          value={enRouteData?.meta?.totalItems ?? 0}
+          icon={Navigation}
+          color="indigo"
+        />
+        <StatCard
+          title="Completed"
+          value={completedData?.meta?.totalItems ?? 0}
+          icon={CheckCircle2}
+          color="green"
+        />
+        <StatCard
+          title="Cancelled"
+          value={cancelledData?.meta?.totalItems ?? 0}
+          icon={XCircle}
+          color="red"
+        />
+      </div>
+
+      {/* ── Filters + Create button ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[180px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -167,10 +172,7 @@ function TripsListPage() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={params.status ?? "all"}
-          onValueChange={handleStatus}
-        >
+        <Select value={params.status ?? "all"} onValueChange={handleStatus}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -183,9 +185,19 @@ function TripsListPage() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* ── Create Trip button moved here, aligned right ── */}
+        {can("trips:create") && (
+          <Link to="/trips/new" className="ml-auto">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Trip
+            </Button>
+          </Link>
+        )}
       </div>
 
-      {/* ── Mobile: card list (hidden on sm+) ── */}
+      {/* ── Mobile: card list ───────────────────────────────────────────────── */}
       <div className="space-y-3 sm:hidden">
         {isLoading && (
           <p className="text-center py-12 text-muted-foreground text-sm">Loading trips…</p>
@@ -193,12 +205,10 @@ function TripsListPage() {
         {!isLoading && trips.length === 0 && (
           <p className="text-center py-12 text-muted-foreground text-sm">No trips found.</p>
         )}
-        {trips.map((trip) => (
-          <TripCard key={trip.id} trip={trip} />
-        ))}
+        {trips.map((trip) => <TripCard key={trip.id} trip={trip} />)}
       </div>
 
-      {/* ── Desktop: table (hidden on mobile) ── */}
+      {/* ── Desktop: table ──────────────────────────────────────────────────── */}
       <div className="hidden sm:block rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
@@ -266,12 +276,10 @@ function TripsListPage() {
         </Table>
       </div>
 
-      {/* Pagination — matches maintenance pattern exactly */}
-      {meta && meta.totalPages > 1 && (
+      {/* ── Pagination — always visible when meta exists (matches maintenance) ─ */}
+      {meta && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {meta.totalItems} trip{meta.totalItems !== 1 ? "s" : ""}
-          </span>
+          <span>{meta.totalItems} trip{meta.totalItems !== 1 ? "s" : ""}</span>
           <div className="flex gap-2">
             <Button
               variant="outline" size="sm"
