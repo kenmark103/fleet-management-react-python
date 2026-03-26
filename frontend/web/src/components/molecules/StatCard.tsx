@@ -17,7 +17,7 @@ interface Trend {
   label?: string;      // e.g. "vs last month"
 }
 
-type CardColor = "default" | "blue" | "green" | "amber" | "red" | "purple";
+type CardColor = "default" | "blue" | "green" | "amber" | "red" | "purple" | "teal" | "cyan" | "indigo";
 
 interface StatCardProps {
   title: string;
@@ -35,6 +35,9 @@ const COLOR_CLASSES: Record<CardColor, { icon: string; iconBg: string }> = {
   amber:   { icon: "text-amber-600",        iconBg: "bg-amber-50" },
   red:     { icon: "text-red-600",          iconBg: "bg-red-50" },
   purple:  { icon: "text-purple-600",       iconBg: "bg-purple-50" },
+  teal:    { icon: "text-teal-600",         iconBg: "bg-teal-50" },
+  cyan:    { icon: "text-cyan-600",         iconBg: "bg-cyan-50" },
+  indigo:  { icon: "text-indigo-600",       iconBg: "bg-indigo-50" },
 };
 
 const TREND_ICONS: Record<TrendDirection, LucideIcon> = {

@@ -3,15 +3,17 @@
  * Route: /fleet/trucks
  *
  * Fixes:
- *   - Subtitle changed from dynamic count to static description
- *   - Pagination guard changed from `meta.totalPages > 1` → always show when meta exists
- *     (matches maintenance pattern: Previous/Next disabled on single page, not hidden)
+ *   - "Add Truck" button moved from PageHeader actions → inline with search (ml-auto)
+ *   - Refresh button stays in PageHeader actions (utility action, not a primary CTA)
+ *   - Search extracted from DataTable → manual Input so button can sit alongside it
+ *   - Pagination always visible when meta exists
  */
 
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Truck, RefreshCw } from "lucide-react";
+import { Plus, Truck, RefreshCw, Search } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
 import { PageHeader } from "../../../../components/molecules/PageHeader";
 import { StatCard } from "../../../../components/molecules/StatCard";
 import { DataTable, type Column } from "../../../../components/molecules/DataTable";
@@ -114,21 +116,16 @@ function TrucksIndex() {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Header — refresh button stays here as a utility action ─────── */}
       <PageHeader
         title="Trucks"
         subtitle="Manage and monitor your fleet vehicles"
         icon={<Truck className="h-6 w-6" />}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            {can("trucks:create") && (
-              <Button onClick={() => navigate({ to: "/fleet/trucks/new" })}>
-                <Plus className="mr-2 h-4 w-4" />Add Truck
-              </Button>
-            )}
-          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         }
       />
 
@@ -140,18 +137,35 @@ function TrucksIndex() {
         </div>
       )}
 
+      {/* ── Search + Add Truck button inline ────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by plate, make, model…"
+            className="pl-9"
+            onChange={(e) =>
+              setParams((p) => ({ ...p, page: 1, search: e.target.value || undefined }))
+            }
+          />
+        </div>
+
+        {can("trucks:create") && (
+          <Button className="ml-auto" onClick={() => navigate({ to: "/fleet/trucks/new" })}>
+            <Plus className="mr-2 h-4 w-4" />Add Truck
+          </Button>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
         data={trucks}
         loading={isLoading}
-        searchable
-        searchPlaceholder="Search by plate, make, model…"
-        onSearchChange={(val) => setParams((p) => ({ ...p, page: 1, search: val || undefined }))}
         emptyTitle="No trucks found"
         emptyDescription="Add your first truck to get started."
       />
 
-      {/* ── Pagination — always visible when meta exists (matches maintenance) ─ */}
+      {/* ── Pagination — always visible when meta exists ─────────────────── */}
       {meta && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{meta.totalItems} truck{meta.totalItems !== 1 ? "s" : ""}</span>

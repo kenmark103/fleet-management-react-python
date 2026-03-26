@@ -26,6 +26,7 @@ import { Separator } from "../ui/separator";
 import type { Truck } from "../../types/fleet";
 import type { TruckPayload } from "../../lib/fleet-api";
 import { getStaticUrl } from "../../lib/utils";
+import apiClient from "../../lib/api";
 import {
   getTruckMakeNames,
   getTruckModels,
@@ -176,21 +177,20 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel, onImag
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(`/api/v1/fleet/trucks/${truckId}/image`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Upload failed");
-      }
-      const data = await res.json();
+      // ✅ Use apiClient (not raw fetch) so VITE_API_URL is applied in production.
+      //    Raw fetch("/api/v1/...") resolves to Vercel on prod → 405 Method Not Allowed.
+      //    Clear Content-Type so axios sets the correct multipart boundary automatically.
+      const { data } = await apiClient.post(
+        `/api/v1/fleet/trucks/${truckId}/image`,
+        fd,
+        { headers: { "Content-Type": undefined } },
+      );
       const url: string = data.imageUrl ?? data.image_url ?? "";
       setImgPreview(getStaticUrl(url) ?? url);
       onImageUploaded?.(url);
     } catch (e: any) {
-      setImgError(e.message ?? "Upload failed");
+      const detail = e?.response?.data?.detail;
+      setImgError(typeof detail === "string" ? detail : e.message ?? "Upload failed");
       setImgPreview(getStaticUrl(defaultValues?.imageUrl) ?? null);
     } finally {
       setImgUploading(false);
