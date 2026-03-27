@@ -1,11 +1,19 @@
 /**
  * routes/_auth/trips/$tripId/index.tsx
- * Fleet Management System — Phase 5
+ * Fleet Management System — Phase 8
  *
- * Changes:
- *   - "Log Fuel" button added to page header actions bar,
- *     visible only when trip is en-route and user can("fuel:log-own")
- *   - QuickFuelLogSheet wired in below the page
+ * Changes from Phase 5:
+ *   - Added "Trip Activity" tabs section below the map/detail grid.
+ *     Tabs: Fuel Logs | Expenses | Incidents
+ *     Each tab shows mini summary stats + a compact table, filtered to
+ *     this trip only — no data from other trips ever appears here.
+ *
+ * TYPE NOTE:
+ *   If FuelLogParams / ExpenseParams in types/fuel.ts don't yet have
+ *   a `trip_id` field, add them:
+ *     trip_id?: string   ← snake_case to match buildQuery → backend
+ *   The backend fuel/expenses list endpoints already support trip_id
+ *   via the ForeignKey on FuelLog.trip_id / Expense.trip_id columns.
  */
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -24,11 +32,14 @@ import {
   Navigation,
   Loader2,
   Fuel,
+  Receipt,
+  AlertTriangle,
+  Droplets,
 } from "lucide-react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
-import { useOSRMRoute } from "../../../../hooks/useOSRMRoute";
+import { useOSRMRoute }         from "../../../../hooks/useOSRMRoute";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon   from "leaflet/dist/images/marker-icon.png";
@@ -65,21 +76,36 @@ import {
   useTrip,
   useUpdateTripStatus,
   useDeleteTrip,
-} from "../../../../hooks/useTrips";
-import { usePermission }       from "../../../../hooks/usePermission";
-import { StatusBadge }         from "../../../../components/atoms/StatusBadge";
-import { ConfirmDialog }       from "../../../../components/atoms/ConfirmDialog";
-import { PageHeader }          from "../../../../components/molecules/PageHeader";
-import { DetailCard }          from "../../../../components/molecules/DetailCard";
-import { Button }              from "../../../../components/ui/button";
-import { QuickFuelLogSheet }   from "../../../../components/forms/QuickFuelLogSheet";
-import { formatDate, formatDistance } from "../../../../lib/utils";
+}                                from "../../../../hooks/useTrips";
+import { useFuelLogs, useExpenses } from "../../../../hooks/useFuel";
+import { useIncidents }          from "../../../../hooks/useIncidents";
+import { usePermission }         from "../../../../hooks/usePermission";
+import { StatusBadge }           from "../../../../components/atoms/StatusBadge";
+import { ConfirmDialog }         from "../../../../components/atoms/ConfirmDialog";
+import { PageHeader }            from "../../../../components/molecules/PageHeader";
+import { DetailCard }            from "../../../../components/molecules/DetailCard";
+import { Button }                from "../../../../components/ui/button";
+import { Badge }                 from "../../../../components/ui/badge";
+import { QuickFuelLogSheet }     from "../../../../components/forms/QuickFuelLogSheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "../../../../components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Separator }             from "../../../../components/ui/separator";
+import { formatDate, formatDistance, formatCurrency, formatNumber } from "../../../../lib/utils";
+import { INCIDENT_TYPE_LABELS, INCIDENT_SEVERITY_COLORS } from "../../../../lib/constants";
 import type { TripStatus, Trip } from "../../../../types/trips";
-import { toast }               from "sonner";
+import { toast }                 from "sonner";
+import { useAppSettings } from "#/lib/settings-context";
 
 export const Route = createFileRoute("/_auth/trips/$tripId/")({
   component: TripDetailPage,
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 
 function TripDetailPage() {
   const { tripId } = Route.useParams();
@@ -100,9 +126,8 @@ function TripDetailPage() {
     open: false, newStatus: null, title: "", description: "", captureLocation: false,
   });
 
-  const [deleteDialogOpen,  setDeleteDialogOpen]  = useState(false);
-  // ── Fuel log sheet state ──────────────────────────────────────────────────
-  const [fuelSheetOpen,     setFuelSheetOpen]     = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fuelSheetOpen,    setFuelSheetOpen]    = useState(false);
 
   if (isLoading) {
     return (
@@ -184,13 +209,13 @@ function TripDetailPage() {
     }
   };
 
-  // ── Show "Log Fuel" only when en-route and user has fuel permission ────────
   const showFuelButton = trip.status === "en-route" && can("fuel:log-own");
+  const { formatCurrency, formatAppDate } = useAppSettings(); 
 
   return (
     <div className="space-y-6">
 
-      {/* ── Page header ────────────────────────────────────────────────────── */}
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
       <PageHeader
         title={`Trip ${trip.tripNumber}`}
         subtitle={`${trip.origin} → ${trip.destination}`}
@@ -202,7 +227,6 @@ function TripDetailPage() {
               </Button>
             </Link>
 
-            {/* Log Fuel — only visible when en-route */}
             {showFuelButton && (
               <Button
                 variant="outline"
@@ -232,9 +256,10 @@ function TripDetailPage() {
         }
       />
 
+      {/* ── Main grid: detail cards + map ────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* ── Left column — detail cards ──────────────────────────────────── */}
+        {/* Left column — detail cards */}
         <div className="lg:col-span-1 space-y-4">
 
           <DetailCard
@@ -338,13 +363,20 @@ function TripDetailPage() {
           )}
         </div>
 
-        {/* ── Right column — map ──────────────────────────────────────────── */}
+        {/* Right column — map */}
         <div className="lg:col-span-2">
           <TripRouteMap trip={trip} />
         </div>
       </div>
 
-      {/* ── Quick fuel log sheet ─────────────────────────────────────────── */}
+      {/* ── Trip Activity tabs (fuel / expenses / incidents) ─────────────────── */}
+      <TripActivityTabs
+        tripId={tripId}
+        trip={trip}
+        currency={trip.currency ?? "USD"}
+      />
+
+      {/* ── Quick fuel log sheet ──────────────────────────────────────────────── */}
       <QuickFuelLogSheet
         open={fuelSheetOpen}
         onOpenChange={setFuelSheetOpen}
@@ -354,7 +386,7 @@ function TripDetailPage() {
         truckPlate={trip.assignedTruckPlate}
       />
 
-      {/* ── Status confirm dialog ────────────────────────────────────────── */}
+      {/* ── Status confirm dialog ─────────────────────────────────────────────── */}
       <ConfirmDialog
         open={statusDialog.open}
         onOpenChange={(open) => setStatusDialog((s) => ({ ...s, open }))}
@@ -370,7 +402,7 @@ function TripDetailPage() {
         isLoading={updateStatus.isPending}
       />
 
-      {/* ── Delete confirm dialog ────────────────────────────────────────── */}
+      {/* ── Delete confirm dialog ─────────────────────────────────────────────── */}
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -386,11 +418,321 @@ function TripDetailPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRIP ROUTE MAP  — isolated component so Leaflet's z-indexes are contained
+// TRIP ACTIVITY TABS
+// Fuel Logs | Expenses | Incidents — all scoped to this tripId only.
+// Lives below the main grid so it never competes for vertical space with
+// the map, which needs room to breathe.
 // ─────────────────────────────────────────────────────────────────────────────
 
+function TripActivityTabs({
+  tripId,
+  trip,
+  currency,
+}: {
+  tripId:   string;
+  trip:     Trip;
+  currency: string;
+}) {
+  // All three queries are independent — only the active tab is visible but
+  // all fire in parallel so switching tabs feels instant.
+  const { data: fuelData }     = useFuelLogs({ trip_id: tripId, page_size: 50 } as any);
+  const { data: expenseData }  = useExpenses({ trip_id: tripId, page_size: 50 } as any);
+  const { data: incidentData } = useIncidents({ tripId, pageSize: 10 });
+
+  // ── Derived totals (computed from the fetched list) ───────────────────────
+  const fuelLogs   = fuelData?.data     ?? [];
+  const expenses   = expenseData?.data  ?? [];
+  const incidents  = incidentData?.data ?? [];
+
+  const totalLitres  = fuelLogs.reduce((s, l) => s + (l.litres       ?? 0), 0);
+  const totalFuelCost = fuelLogs.reduce((s, l) => s + (l.totalCost   ?? 0), 0);
+  const totalExpCost  = expenses.reduce((s, e) => s + (e.amount      ?? 0), 0);
+
+  // Tab label badge counts
+  const fuelCount     = fuelLogs.length;
+  const expenseCount  = expenses.length;
+  const incidentCount = incidents.length;
+
+  return (
+    <div className="space-y-2">
+      <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase px-0.5">
+        Trip Activity
+      </h2>
+
+      <Tabs defaultValue="fuel">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[440px]">
+          <TabsTrigger value="fuel" className="flex items-center gap-1.5">
+            <Droplets className="h-3.5 w-3.5" />
+            Fuel Logs
+            {fuelCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-4 min-w-[1.25rem] px-1 text-[10px]">
+                {fuelCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="expenses" className="flex items-center gap-1.5">
+            <Receipt className="h-3.5 w-3.5" />
+            Expenses
+            {expenseCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-4 min-w-[1.25rem] px-1 text-[10px]">
+                {expenseCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="incidents" className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Incidents
+            {incidentCount > 0 && (
+              <Badge
+                variant="secondary"
+                className={`ml-1 h-4 min-w-[1.25rem] px-1 text-[10px] ${
+                  incidents.some(i => i.severity === "critical" || i.severity === "high")
+                    ? "bg-red-100 text-red-700"
+                    : ""
+                }`}
+              >
+                {incidentCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── FUEL LOGS TAB ──────────────────────────────────────────────────── */}
+        <TabsContent value="fuel" className="mt-4">
+          <Card>
+            {/* Summary stat row */}
+            {fuelLogs.length > 0 && (
+              <>
+                <div className="grid grid-cols-3 divide-x border-b">
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Fill-ups</p>
+                    <p className="text-xl font-semibold">{fuelCount}</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Total Litres</p>
+                    <p className="text-xl font-semibold">{formatNumber(totalLitres, 1)} L</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Fuel Cost</p>
+                    <p className="text-xl font-semibold">{formatCurrency(totalFuelCost, currency)}</p>
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Station</TableHead>
+                  <TableHead className="text-right">Litres</TableHead>
+                  <TableHead className="text-right">Price / L</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Odometer</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fuelLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No fuel logs recorded for this trip.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  fuelLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-sm">{formatDate(log.loggedAt ?? log.createdAt)}</TableCell>
+                      <TableCell className="text-sm">{log.stationName ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-right text-sm">{formatNumber(log.litres, 1)} L</TableCell>
+                      <TableCell className="text-right text-sm">{formatCurrency(log.pricePerLitre, currency)}</TableCell>
+                      <TableCell className="text-right text-sm font-medium">{formatCurrency(log.totalCost, currency)}</TableCell>
+                      <TableCell className="text-right text-sm font-mono">{log.odometerAtFuel ? `${formatNumber(log.odometerAtFuel, 0)} km` : "—"}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {(fuelData?.meta.totalItems ?? 0) > 50 && (
+              <div className="border-t px-4 py-2.5">
+                <Link to="/fuel" search={{ tripId }}>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    View all {fuelData?.meta.totalItems} fuel logs →
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        {/* ── EXPENSES TAB ───────────────────────────────────────────────────── */}
+        <TabsContent value="expenses" className="mt-4">
+          <Card>
+            {expenses.length > 0 && (
+              <>
+                <div className="grid grid-cols-3 divide-x border-b">
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Entries</p>
+                    <p className="text-xl font-semibold">{expenseCount}</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Total Spend</p>
+                    <p className="text-xl font-semibold">{formatCurrency(totalExpCost, currency)}</p>
+                  </div>
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-muted-foreground">Categories</p>
+                    <p className="text-xl font-semibold">
+                      {new Set(expenses.map(e => e.category)).size}
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {expenses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      No expenses recorded for this trip.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  expenses.map((exp) => (
+                    <TableRow key={exp.id}>
+                      <TableCell className="text-sm">{formatDate(exp.expenseDate ?? exp.createdAt)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize text-xs">
+                          {exp.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">
+                        {exp.description}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium">
+                        {formatCurrency(exp.amount, exp.currency ?? currency)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {(expenseData?.meta.totalItems ?? 0) > 50 && (
+              <div className="border-t px-4 py-2.5">
+                <Link to="/fuel" search={{ tripId }}>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    View all {expenseData?.meta.totalItems} expenses →
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        {/* ── INCIDENTS TAB ──────────────────────────────────────────────────── */}
+        <TabsContent value="incidents" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4">
+              <CardTitle className="text-sm font-medium">
+                Incidents linked to this trip
+              </CardTitle>
+              <Link to="/incidents/new" search={{ tripId }}>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <AlertTriangle className="mr-1.5 h-3 w-3" />
+                  Report Incident
+                </Button>
+              </Link>
+            </CardHeader>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Reported By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {incidents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                      No incidents reported for this trip.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  incidents.map((inc) => (
+                    <TableRow key={inc.id}>
+                      <TableCell>
+                        <Link
+                          to="/incidents/$incidentId"
+                          params={{ incidentId: inc.id }}
+                          className="font-mono text-xs font-medium text-primary hover:underline"
+                        >
+                          {inc.incidentNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="max-w-[180px] truncate text-sm font-medium">
+                        {inc.title}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {INCIDENT_TYPE_LABELS[inc.type]}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${INCIDENT_SEVERITY_COLORS[inc.severity]}`}
+                        >
+                          {inc.severity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={inc.status} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(inc.incidentDate)}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {inc.reporterName}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {(incidentData?.meta.totalItems ?? 0) > 10 && (
+              <div className="border-t px-4 py-2.5">
+                <Link to="/incidents" search={{ tripId }}>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    View all {incidentData?.meta.totalItems} incidents →
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// TRIP ROUTE MAP  — isolated component so Leaflet's z-indexes are contained
+// TRIP ROUTE MAP  — unchanged from Phase 5
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TripRouteMap({ trip }: { trip: Trip }) {
@@ -398,7 +740,6 @@ function TripRouteMap({ trip }: { trip: Trip }) {
   const hasDest     = Boolean(trip.destinationLat && trip.destinationLng);
   const hasLastPing = Boolean(trip.lastPing);
 
-  // ── OSRM road-following route ──────────────────────────────────────────────
   const osrm = useOSRMRoute({
     originLat:      trip.originLat,
     originLng:      trip.originLng,
@@ -407,22 +748,20 @@ function TripRouteMap({ trip }: { trip: Trip }) {
     enabled:        hasOrigin && hasDest,
   });
 
-  // Fallback straight-line positions (used while OSRM loads or on error)
   const straightLinePositions: LatLngExpression[] = [
-    ...(hasOrigin ? [[trip.originLat!,      trip.originLng!]      as LatLngExpression] : []),
-    ...(hasLastPing ? [[trip.lastPing!.lat, trip.lastPing!.lng]   as LatLngExpression] : []),
-    ...(hasDest   ? [[trip.destinationLat!, trip.destinationLng!] as LatLngExpression] : []),
+    ...(hasOrigin   ? [[trip.originLat!,             trip.originLng!]      as LatLngExpression] : []),
+    ...(hasLastPing ? [[trip.lastPing!.lat,           trip.lastPing!.lng]   as LatLngExpression] : []),
+    ...(hasDest     ? [[trip.destinationLat!,         trip.destinationLng!] as LatLngExpression] : []),
   ];
 
   const mapCenter: LatLngExpression = hasOrigin
     ? [trip.originLat!, trip.originLng!]
     : hasLastPing
     ? [trip.lastPing!.lat, trip.lastPing!.lng]
-    : [1.2921, 36.8219]; // Nairobi default — better than [20, 0] for your region
+    : [1.2921, 36.8219];
 
   const mapZoom = hasOrigin || hasLastPing ? 7 : 5;
 
-  // OSRM distance/duration for the legend (only shown when OSRM succeeds)
   const osrmDistanceLabel =
     osrm.status === "success" && osrm.distanceKm != null
       ? `Road distance: ${osrm.distanceKm.toFixed(0)} km`
@@ -460,22 +799,16 @@ function TripRouteMap({ trip }: { trip: Trip }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
           />
-
-          {/* Origin marker */}
           {hasOrigin && (
             <Marker position={[trip.originLat!, trip.originLng!]} icon={greenIcon}>
               <Popup><strong>Origin</strong><br />{trip.origin}</Popup>
             </Marker>
           )}
-
-          {/* Destination marker */}
           {hasDest && (
             <Marker position={[trip.destinationLat!, trip.destinationLng!]} icon={redIcon}>
               <Popup><strong>Destination</strong><br />{trip.destination}</Popup>
             </Marker>
           )}
-
-          {/* Last-known truck location — always shown independently */}
           {hasLastPing && (
             <Marker position={[trip.lastPing!.lat, trip.lastPing!.lng]} icon={truckIcon}>
               <Popup>
@@ -484,11 +817,6 @@ function TripRouteMap({ trip }: { trip: Trip }) {
               </Popup>
             </Marker>
           )}
-
-          {/*
-            OSRM road-following polyline — shown when route is loaded.
-            Falls back to straight dashed line while loading or on error.
-          */}
           {osrm.status === "success" && osrm.polyline.length >= 2 ? (
             <Polyline
               positions={osrm.polyline as LatLngExpression[]}
@@ -505,7 +833,6 @@ function TripRouteMap({ trip }: { trip: Trip }) {
         </MapContainer>
       </div>
 
-      {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
         {hasOrigin   && <LegendDot color="bg-green-500"  label="Origin" />}
         {hasDest     && <LegendDot color="bg-red-500"    label="Destination" />}
@@ -515,12 +842,8 @@ function TripRouteMap({ trip }: { trip: Trip }) {
             label={`Last Location (${formatDate(trip.lastPing!.recordedAt, "time")})`}
           />
         )}
-        {osrmDistanceLabel && (
-          <span className="text-blue-600 font-medium">{osrmDistanceLabel}</span>
-        )}
-        {osrmDurationLabel && (
-          <span className="text-blue-600">{osrmDurationLabel}</span>
-        )}
+        {osrmDistanceLabel && <span className="text-blue-600 font-medium">{osrmDistanceLabel}</span>}
+        {osrmDurationLabel && <span className="text-blue-600">{osrmDurationLabel}</span>}
         {!hasOrigin && !hasDest && !hasLastPing && (
           <span className="italic">
             No location data yet — coords are populated when the trip is created or updated.
