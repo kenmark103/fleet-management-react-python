@@ -21,6 +21,8 @@ import {
   UserCog,
   Settings,
   UserCircle,
+  AlertTriangle, 
+  BarChart3,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ExpenseCategory } from "../types/fuel";
@@ -84,6 +86,10 @@ export const STATUS_VALUES = [
   "under-maintenance",
   "on-leave",
   "suspended",
+  "open",
+  "under_review",
+  "resolved",
+  "closed",
 ] as const;
 
 export type StatusValue = (typeof STATUS_VALUES)[number];
@@ -102,6 +108,10 @@ export const STATUS_LABELS: Record<StatusValue, string> = {
   "under-maintenance": "Under Maintenance",
   "on-leave":          "On Leave",
   suspended:           "Suspended",
+  open:                "Open",
+  under_review:        "Under Review",
+  resolved:            "Resolved",
+  closed:              "Closed",
 };
 
 /** Tailwind color classes for StatusBadge */
@@ -118,6 +128,10 @@ export const STATUS_COLORS: Record<StatusValue, string> = {
   "under-maintenance": "bg-orange-100 text-orange-700 border-orange-200",
   "on-leave":          "bg-purple-100 text-purple-700 border-purple-200",
   suspended:           "bg-red-100 text-red-800 border-red-300",
+  open:                "bg-blue-100 text-blue-700 border-blue-200",
+  under_review:        "bg-yellow-100 text-yellow-700 border-yellow-200",
+  resolved:            "bg-emerald-100 text-emerald-700 border-emerald-200",
+  closed:              "bg-gray-100 text-gray-600 border-gray-200",
 };
 
 
@@ -150,7 +164,7 @@ export const EXPENSE_CATEGORY_COLORS: Record<ExpenseCategory, string> = {
 
 // Scoped subsets — used by FilterBar dropdowns
 
-/** §types/fleet.ts — TruckStatus values */
+/**types/fleet.ts — TruckStatus values */
 export const TRUCK_STATUSES = [
   "active",
   "inactive",
@@ -182,13 +196,44 @@ export const TRIP_STATUSES = [
 
 export type TripStatus = (typeof TRIP_STATUSES)[number];
 
-/** §types/maintenance.ts — WorkOrder status values */
+/**types/maintenance.ts — WorkOrder status values */
 export const WORK_ORDER_STATUSES = [
   "pending",
   "in-progress",
   "completed",
   "overdue",
 ] as const satisfies StatusValue[];
+
+export const INCIDENT_STATUSES = [
+  "open",
+  "under_review",
+  "resolved",
+  "closed",
+] as const satisfies StatusValue[];
+
+export const INCIDENT_TYPES = [
+  "accident", "breakdown", "theft",
+  "traffic_violation", "near_miss", "property_damage", "other",
+] as const;
+
+export type IncidentTypeValue = (typeof INCIDENT_TYPES)[number];
+
+export const INCIDENT_TYPE_LABELS: Record<IncidentTypeValue, string> = {
+  accident:          "Accident",
+  breakdown:         "Breakdown",
+  theft:             "Theft",
+  traffic_violation: "Traffic Violation",
+  near_miss:         "Near Miss",
+  property_damage:   "Property Damage",
+  other:             "Other",
+};
+
+export const INCIDENT_SEVERITY_COLORS: Record<string, string> = {
+  low:      "bg-green-100 text-green-700 border-green-200",
+  medium:   "bg-yellow-100 text-yellow-700 border-yellow-200",
+  high:     "bg-orange-100 text-orange-700 border-orange-200",
+  critical: "bg-red-100 text-red-700 border-red-200",
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SIDEBAR NAV CONFIG  §3, §7.2
@@ -268,6 +313,22 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/maintenance",
     icon: Wrench,
     roles: ["ADMIN", "DISPATCHER", "MECHANIC"],
+  },
+
+  // ── Incidents — all except FINANCE ───────────────────────────────────────
+  {
+    label: "Incidents",
+    href:  "/incidents",
+    icon:  AlertTriangle,    // import AlertTriangle from "lucide-react"
+    roles: ["ADMIN", "DISPATCHER", "DRIVER", "MECHANIC"],
+  },
+
+  // ── Reports — ADMIN, DISPATCHER, FINANCE ─────────────────────────────────
+  {
+    label: "Reports",
+    href:  "/reports",
+    icon:  BarChart3,        // import BarChart3 from "lucide-react"
+    roles: ["ADMIN", "DISPATCHER", "FINANCE"],
   },
 
   // ── Settings — ADMIN only ────────────────────────────────────────────────

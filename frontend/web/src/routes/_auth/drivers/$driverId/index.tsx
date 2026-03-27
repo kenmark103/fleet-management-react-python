@@ -43,6 +43,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon, getStaticUrl } from "../../../../lib/utils";
+import { useIncidents } from "@/hooks/useIncidents";
 
 export const Route = createFileRoute("/_auth/drivers/$driverId/")({
   component: DriverDetailPage,
@@ -269,7 +270,6 @@ function DriverDetailPage() {
   const { driverId } = useParams({ from: "/_auth/drivers/$driverId/" });
   const navigate     = useNavigate();
   const { can }      = usePermission();
-
   const { data, isLoading, isError } = useDriver(driverId);
   const deleteDriver = useDeleteDriver();
   const [deleteOpen, setDeleteOpen] = useState(false);

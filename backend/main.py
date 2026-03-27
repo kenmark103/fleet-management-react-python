@@ -22,6 +22,7 @@ from routes.settings import settings_router
 from routes.trips import router as trips_router
 from routes.notifications import router as notifications_router
 from routes.vehicles import router as vehicle_router
+from routes import incidents, reports
 from services.expiry_checker import daily_expiry_check_loop
 from scripts.seed_admin import seed
 
@@ -77,6 +78,8 @@ app.include_router(trips_router, prefix="/api/v1")
 app.include_router(maintenance_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(vehicle_router, prefix="/api/v1")
+app.include_router(incidents.router, prefix="/api/v1")
+app.include_router(reports.router,   prefix="/api/v1")
 
 # Ensure static upload directories exist on every environment (local, Docker, Render).
 for _dir in ("static", "static/avatars", "static/trucks", "static/trailers"):

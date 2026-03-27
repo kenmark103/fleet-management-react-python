@@ -140,6 +140,30 @@ class ExpenseCategory(str, Enum):
     OTHER       = "other"
 
 
+class IncidentType(str, Enum):
+    ACCIDENT          = "accident"
+    BREAKDOWN         = "breakdown"
+    THEFT             = "theft"
+    TRAFFIC_VIOLATION = "traffic_violation"
+    NEAR_MISS         = "near_miss"
+    PROPERTY_DAMAGE   = "property_damage"
+    OTHER             = "other"
+
+
+class IncidentSeverity(str, Enum):
+    LOW      = "low"
+    MEDIUM   = "medium"
+    HIGH     = "high"
+    CRITICAL = "critical"
+
+
+class IncidentStatus(str, Enum):
+    OPEN         = "open"
+    UNDER_REVIEW = "under_review"
+    RESOLVED     = "resolved"
+    CLOSED       = "closed"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # API RESPONSE WRAPPERS  ←→  types/api.ts
 # ─────────────────────────────────────────────────────────────────────────────

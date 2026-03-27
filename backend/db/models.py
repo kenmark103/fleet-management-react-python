@@ -108,6 +108,21 @@ ExpenseCategoryEnum = SAEnum(
     name="expensecategory"
 )
 
+IncidentTypeEnum = SAEnum(
+    "accident", "breakdown", "theft", "traffic_violation",
+    "near_miss", "property_damage", "other",
+    name="incidenttype",
+)
+
+IncidentSeverityEnum = SAEnum(
+    "low", "medium", "high", "critical",
+    name="incidentseverity",
+)
+
+IncidentStatusEnum = SAEnum(
+    "open", "under_review", "resolved", "closed",
+    name="incidentstatus",
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # USERS
@@ -207,13 +222,8 @@ class Truck(Base):
     service_schedules: Mapped[list["ServiceSchedule"]] = relationship("ServiceSchedule", back_populates="truck",  cascade="all, delete-orphan")
     fuel_logs:         Mapped[list["FuelLog"]]         = relationship("FuelLog",         back_populates="truck")
     work_orders:       Mapped[list["WorkOrder"]]       = relationship("WorkOrder",       back_populates="truck")
-    # ── Stage 3: trip history ───────────────────────────────────────────────
-    trips:             Mapped[list["Trip"]]            = relationship(
-        "Trip",
-        back_populates="assigned_truck",
-        foreign_keys="[Trip.assigned_truck_id]",
-        lazy="select",
-    )
+    trips:             Mapped[list["Trip"]]            = relationship("Trip",            back_populates="assigned_truck",  foreign_keys="[Trip.assigned_truck_id]", lazy="select",)
+    incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="truck", foreign_keys="[Incident.truck_id]")
 
 
 class TruckDocument(Base):
@@ -325,7 +335,7 @@ class Driver(Base):
     documents: Mapped[list["DriverDocument"]] = relationship("DriverDocument", back_populates="driver", cascade="all, delete-orphan")
     fuel_logs: Mapped[list["FuelLog"]]        = relationship("FuelLog",        back_populates="driver")
     trips:     Mapped[list["Trip"]]           = relationship("Trip",           back_populates="assigned_driver", foreign_keys="[Trip.assigned_driver_id]")
-
+    incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="driver", foreign_keys="[Incident.driver_id]")
 
 class DriverDocument(Base):
     __tablename__ = "driver_documents"
@@ -377,7 +387,7 @@ class Trip(Base):
     assigned_truck:   Mapped[Optional["Truck"]]   = relationship("Truck",   back_populates="trips",           foreign_keys=[assigned_truck_id])
     assigned_trailer: Mapped[Optional["Trailer"]] = relationship("Trailer",                                   foreign_keys=[assigned_trailer_id])
     assigned_driver:  Mapped[Optional["Driver"]]  = relationship("Driver",  back_populates="trips",           foreign_keys=[assigned_driver_id])
-
+    incidents: Mapped[list["Incident"]] = relationship("Incident", back_populates="trip", foreign_keys="[Incident.trip_id]")
 
 class TripLocationPing(Base):
     __tablename__ = "trip_location_pings"
@@ -505,6 +515,58 @@ class ServiceSchedule(Base):
 
     truck: Mapped[Truck] = relationship("Truck", back_populates="service_schedules")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# INCIDENTS
+# ─────────────────────────────────────────────────────────────────────────────
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id:               Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid, index=True)
+    incident_number:  Mapped[str]               = mapped_column(String(20), unique=True, index=True)
+    title:            Mapped[str]               = mapped_column(String(200))
+    description:      Mapped[str]               = mapped_column(Text)
+    type:             Mapped[str]               = mapped_column(IncidentTypeEnum)
+    severity:         Mapped[str]               = mapped_column(IncidentSeverityEnum)
+    status:           Mapped[str]               = mapped_column(IncidentStatusEnum, default="open")
+    incident_date:    Mapped[datetime]           = mapped_column(TZ)
+    location:         Mapped[Optional[str]]      = mapped_column(String(200), nullable=True)
+    location_lat:     Mapped[Optional[float]]    = mapped_column(Float,       nullable=True)
+    location_lng:     Mapped[Optional[float]]    = mapped_column(Float,       nullable=True)
+    # Optional links — any or all may be set
+    driver_id:        Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("drivers.id"),  nullable=True)
+    truck_id:         Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("trucks.id"),   nullable=True)
+    trailer_id:       Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("trailers.id"), nullable=True)
+    trip_id:          Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("trips.id"),    nullable=True)
+    reported_by:      Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    resolution_notes: Mapped[Optional[str]]      = mapped_column(Text,       nullable=True)
+    resolved_at:      Mapped[Optional[datetime]] = mapped_column(TZ,         nullable=True)
+    resolved_by:      Mapped[Optional[str]]      = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    created_at:       Mapped[datetime]           = mapped_column(TZ, server_default=func.now())
+    updated_at:       Mapped[datetime]           = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+    reporter:    Mapped["User"]                       = relationship("User",    foreign_keys=[reported_by])
+    resolver:    Mapped[Optional["User"]]             = relationship("User",    foreign_keys=[resolved_by])
+    driver:      Mapped[Optional["Driver"]]           = relationship("Driver",  foreign_keys=[driver_id])
+    truck:       Mapped[Optional["Truck"]]            = relationship("Truck",   foreign_keys=[truck_id])
+    trailer:     Mapped[Optional["Trailer"]]          = relationship("Trailer", foreign_keys=[trailer_id])
+    trip:        Mapped[Optional["Trip"]]             = relationship("Trip",    foreign_keys=[trip_id])
+    attachments: Mapped[list["IncidentAttachment"]]   = relationship(
+        "IncidentAttachment", back_populates="incident", cascade="all, delete-orphan"
+    )
+
+
+class IncidentAttachment(Base):
+    __tablename__ = "incident_attachments"
+
+    id:          Mapped[str]               = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    incident_id: Mapped[str]               = mapped_column(String(36), ForeignKey("incidents.id"))
+    file_name:   Mapped[str]               = mapped_column(String(255))
+    file_url:    Mapped[str]               = mapped_column(String(500))
+    file_type:   Mapped[Optional[str]]     = mapped_column(String(50), nullable=True)
+    uploaded_by: Mapped[str]               = mapped_column(String(36), ForeignKey("users.id"))
+    uploaded_at: Mapped[datetime]          = mapped_column(TZ, server_default=func.now())
+
+    incident: Mapped["Incident"] = relationship("Incident", back_populates="attachments")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SYSTEM SETTINGS
