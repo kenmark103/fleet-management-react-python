@@ -20,20 +20,36 @@ import type { PaginatedResponse, ApiResponse } from '../types/api'
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const incidentKeys = {
-  all:      ['incidents'] as const,
-  list:     (params?: IncidentParams) => ['incidents', 'list', params] as const,
-  detail:   (id: string)              => ['incidents', 'detail', id] as const,
-  summary:  ()                        => ['incidents', 'summary'] as const,
+  all:     ['incidents'] as const,
+  list:    (params?: IncidentParams) => ['incidents', 'list', params] as const,
+  detail:  (id: string)              => ['incidents', 'detail', id] as const,
+  summary: ()                        => ['incidents', 'summary'] as const,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Maps camelCase IncidentParams keys → snake_case query params that FastAPI expects.
+ * Without this, `pageSize` is sent as-is and the backend ignores it (uses default).
+ */
+const PARAM_KEY_MAP: Record<string, string> = {
+  pageSize: 'page_size',
+  driverId: 'driver_id',
+  truckId:  'truck_id',
+  tripId:   'trip_id',
+  dateFrom: 'date_from',
+  dateTo:   'date_to',
+}
+
 function buildQuery(params: Record<string, unknown>): string {
   const q = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '') q.set(k, String(v))
+    if (v !== undefined && v !== null && v !== '') {
+      const snakeKey = PARAM_KEY_MAP[k] ?? k
+      q.set(snakeKey, String(v))
+    }
   })
   const s = q.toString()
   return s ? `?${s}` : ''

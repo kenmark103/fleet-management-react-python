@@ -18,7 +18,7 @@ from typing import Sequence
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import Notification, User, Driver, Truck, Trip, WorkOrder
+from db.models import Notification, User, Driver, Truck, Trip, WorkOrder, Incident
 
 # ── Email (uncomment when ready to send emails in production) ─────────────────
 # from services.email import (
@@ -54,6 +54,80 @@ async def _create(
     db.add(n)
     # Intentionally NOT committing here — caller commits as part of their own transaction
     return n
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INCIDENTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def notify_incident_reported(
+    db: AsyncSession,
+    incident: Incident,
+    reporter_id: str,
+) -> None:
+    """
+    Call after flushing a new Incident (before commit).
+
+    Notifies:
+      • Every ADMIN and DISPATCHER — always
+      • The linked driver's user account — if incident.driver_id is set
+        and the driver is not the reporter
+
+    NOTE: Uses notification type "system" because the PostgreSQL enum
+    notificationtype does not yet include "incident_reported".
+    To unlock a dedicated type, run once on Neon:
+        ALTER TYPE notificationtype ADD VALUE 'incident_reported';
+    then update NotificationTypeEnum in db/models.py and change type_ below.
+    """
+    severity_label = incident.severity.upper()
+    title   = f"[{severity_label}] New Incident: {incident.title}"
+    message = (
+        f"Incident #{incident.incident_number} has been reported. "
+        f"Type: {incident.type.replace('_', ' ').title()}. "
+        f"Please review and investigate."
+    )
+    action_url = f"/incidents/{incident.id}"
+
+    # Collect all ADMIN / DISPATCHER user IDs
+    result = await db.execute(
+        select(User.id).where(
+            User.role.in_(["ADMIN", "DISPATCHER"]),
+            User.is_active == True,
+        )
+    )
+    recipient_ids: set[str] = set(row[0] for row in result.fetchall())
+
+    # Add the linked driver's user account (if any)
+    driver_user_id: str | None = None
+    if incident.driver_id:
+        driver = await db.get(Driver, incident.driver_id)
+        if driver:
+            driver_user_id = driver.user_id
+            recipient_ids.add(driver_user_id)
+
+    # Never notify the reporter (they know — they filed it)
+    recipient_ids.discard(reporter_id)
+
+    for user_id in recipient_ids:
+        # Personalise message for the involved driver
+        if user_id == driver_user_id:
+            personal_message = (
+                f"You have been linked to incident #{incident.incident_number}: "
+                f"{incident.title}. Please contact your dispatcher."
+            )
+        else:
+            personal_message = message
+
+        await _create(
+            db,
+            user_id=user_id,
+            type_="system",          # swap to "incident_reported" after ALTER TYPE migration
+            title=title,
+            message=personal_message,
+            entity_type="incident",
+            entity_id=incident.id,
+            action_url=action_url,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +169,6 @@ async def notify_trip_status_changed(
     Notify DISPATCHER / ADMIN when a DRIVER changes trip status.
     Notify the DRIVER when dispatcher updates their trip.
     """
-    # Find dispatchers and admins to notify
     result = await db.execute(
         select(User).where(
             User.role.in_(["ADMIN", "DISPATCHER"]),
@@ -104,7 +177,6 @@ async def notify_trip_status_changed(
         )
     )
     supervisors = result.scalars().all()
-
     status_label = trip.status.replace("-", " ").title()
 
     for sup in supervisors:
@@ -120,7 +192,6 @@ async def notify_trip_status_changed(
             action_url=f"/trips/{trip.id}",
         )
 
-    # Also notify the driver if a dispatcher/admin changed their trip
     if trip.assigned_driver_id:
         driver = await db.get(Driver, trip.assigned_driver_id)
         if driver and driver.user_id != changed_by_user_id:
@@ -143,7 +214,6 @@ async def notify_trip_status_changed(
 
 async def notify_work_order_assigned(db: AsyncSession, work_order: WorkOrder) -> None:
     """Call after creating a work order. Notifies the assigned mechanic."""
-
     mechanic = await db.get(User, work_order.assigned_mechanic_id)
     if not mechanic:
         return
@@ -163,19 +233,6 @@ async def notify_work_order_assigned(db: AsyncSession, work_order: WorkOrder) ->
         entity_id=work_order.id,
         action_url=f"/maintenance/work-orders/{work_order.id}",
     )
-
-    # ── Email notification (uncomment when ready) ─────────────────────────────
-    # import os
-    # await send_work_order_assigned(
-    #     to             = mechanic.email,
-    #     mechanic_name  = f"{mechanic.first_name} {mechanic.last_name}",
-    #     wo_number      = work_order.work_order_number,
-    #     wo_title       = work_order.title,
-    #     truck_plate    = truck_label,
-    #     priority       = work_order.priority,
-    #     scheduled_date = work_order.scheduled_date.strftime("%d %b %Y"),
-    #     wo_url         = f"{os.getenv('FRONTEND_URL', '')}/maintenance/work-orders/{work_order.id}",
-    # )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -234,8 +291,8 @@ async def notify_expense_submitted(
 async def notify_document_expiring(
     db: AsyncSession,
     *,
-    entity_label: str,       # e.g. "KCA 001X Insurance"
-    entity_type: str,         # "truck" | "driver"
+    entity_label: str,
+    entity_type: str,
     entity_id: str,
     expiry_date: datetime,
     action_url: str,
@@ -246,7 +303,6 @@ async def notify_document_expiring(
     De-duplicates: won't create a new notification if one already exists
     for the same entity_id and type within the last 7 days.
     """
-    # De-dup check
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     existing = await db.execute(
         select(Notification).where(
@@ -256,7 +312,7 @@ async def notify_document_expiring(
         )
     )
     if existing.scalar_one_or_none():
-        return  # Already notified recently
+        return
 
     days_left = (expiry_date.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)).days
 
@@ -277,44 +333,3 @@ async def notify_document_expiring(
             action_url=action_url,
         )
     await db.commit()
-
-    # ── Email notification (uncomment when ready) ─────────────────────────────
-    # recipient_emails = [u.email for u in recipients]
-    # if recipient_emails:
-    #     await send_document_expiry(
-    #         to           = recipient_emails,
-    #         entity_label = entity_label,
-    #         expiry_date  = expiry_date.strftime("%d %b %Y"),
-    #         days_left    = days_left,
-    #         action_url   = f"{os.getenv('FRONTEND_URL', '')}{action_url}",
-    #     )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# INTEGRATION NOTES
-# ─────────────────────────────────────────────────────────────────────────────
-#
-# routes/trips.py — add these calls:
-#
-#   In create_trip(), AFTER await db.commit():
-#     from services.notification_service import notify_trip_assigned
-#     await notify_trip_assigned(db, trip)
-#     await db.commit()
-#
-#   In update_trip_status(), AFTER trip.status = data.status, BEFORE commit:
-#     from services.notification_service import notify_trip_status_changed
-#     await notify_trip_status_changed(db, trip, old_status, current_user.id)
-#
-# routes/maintenance.py — add in create_work_order(), AFTER await db.commit():
-#     from services.notification_service import notify_work_order_assigned
-#     await notify_work_order_assigned(db, wo)
-#     await db.commit()
-#
-# routes/fuel.py — add in create_fuel_log(), AFTER await db.commit():
-#     from services.notification_service import notify_fuel_logged
-#     await notify_fuel_logged(db, log.id, log.truck_id, log.total_cost)
-#     await db.commit()
-#
-# For document expiry alerts, run notify_document_expiring() as a daily
-# background task (e.g. APScheduler or FastAPI lifespan task) that queries
-# truck_documents and driver_documents with expiry_date within 30 days.

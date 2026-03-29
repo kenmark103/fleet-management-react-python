@@ -40,6 +40,7 @@ from schemas.incidents import (
     IncidentSummary,
 )
 from auth.deps import get_current_user, require_roles
+from services.notification_service import notify_incident_reported
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -71,7 +72,14 @@ async def generate_incident_number(db: DB) -> str:
 
 
 async def resolve_incident_response(db: DB, incident: Incident) -> IncidentResponse:
-    """Build a full IncidentResponse including denormalised display fields."""
+    """
+    Build a full IncidentResponse including denormalised display fields.
+
+    ⚠️  Do NOT call IncidentResponse.model_validate(incident) directly —
+    Pydantic's from_attributes mode accesses incident.attachments (a SQLAlchemy
+    relationship) which raises MissingGreenlet in async context and causes a 500.
+    Instead, extract scalar columns explicitly and pass the fetched related data.
+    """
     reporter_name = ""
     driver_name   = None
     truck_plate   = None
@@ -96,7 +104,7 @@ async def resolve_incident_response(db: DB, incident: Incident) -> IncidentRespo
         if tr:
             trip_number = tr.trip_number
 
-    # Load attachments
+    # Load attachments explicitly — never through the relationship attribute
     att_result = await db.execute(
         select(IncidentAttachment)
         .where(IncidentAttachment.incident_id == incident.id)
@@ -107,13 +115,37 @@ async def resolve_incident_response(db: DB, incident: Incident) -> IncidentRespo
         for a in att_result.scalars().all()
     ]
 
-    data = IncidentResponse.model_validate(incident)
-    data.reporter_name = reporter_name
-    data.driver_name   = driver_name
-    data.truck_plate   = truck_plate
-    data.trip_number   = trip_number
-    data.attachments   = attachments
-    return data
+    # ✅ FIX: build response from scalar values only — never model_validate(incident)
+    # because that triggers lazy relationship access in async SQLAlchemy.
+    return IncidentResponse(
+        id=incident.id,
+        incident_number=incident.incident_number,
+        title=incident.title,
+        description=incident.description,
+        type=incident.type,
+        severity=incident.severity,
+        status=incident.status,
+        incident_date=incident.incident_date,
+        location=incident.location,
+        location_lat=incident.location_lat,
+        location_lng=incident.location_lng,
+        driver_id=incident.driver_id,
+        truck_id=incident.truck_id,
+        trailer_id=incident.trailer_id,
+        trip_id=incident.trip_id,
+        reported_by=incident.reported_by,
+        resolution_notes=incident.resolution_notes,
+        resolved_at=incident.resolved_at,
+        resolved_by=incident.resolved_by,
+        created_at=incident.created_at,
+        updated_at=incident.updated_at,
+        # Denormalised
+        reporter_name=reporter_name,
+        driver_name=driver_name,
+        truck_plate=truck_plate,
+        trip_number=trip_number,
+        attachments=attachments,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -126,12 +158,12 @@ async def resolve_incident_response(db: DB, incident: Incident) -> IncidentRespo
     dependencies=[Depends(require_roles(["ADMIN", "DISPATCHER"]))],
 )
 async def get_incident_summary(db: DB):
-    total_q        = await db.execute(select(func.count(Incident.id)))
-    open_q         = await db.execute(select(func.count(Incident.id)).where(Incident.status == "open"))
-    review_q       = await db.execute(select(func.count(Incident.id)).where(Incident.status == "under_review"))
-    resolved_q     = await db.execute(select(func.count(Incident.id)).where(Incident.status == "resolved"))
-    closed_q       = await db.execute(select(func.count(Incident.id)).where(Incident.status == "closed"))
-    critical_q     = await db.execute(select(func.count(Incident.id)).where(Incident.severity == "critical"))
+    total_q    = await db.execute(select(func.count(Incident.id)))
+    open_q     = await db.execute(select(func.count(Incident.id)).where(Incident.status == "open"))
+    review_q   = await db.execute(select(func.count(Incident.id)).where(Incident.status == "under_review"))
+    resolved_q = await db.execute(select(func.count(Incident.id)).where(Incident.status == "resolved"))
+    closed_q   = await db.execute(select(func.count(Incident.id)).where(Incident.status == "closed"))
+    critical_q = await db.execute(select(func.count(Incident.id)).where(Incident.severity == "critical"))
 
     return ApiResponse(data=IncidentSummary(
         total=total_q.scalar_one(),
@@ -245,8 +277,14 @@ async def create_incident(
         reported_by=current_user.id,
     )
     db.add(incident)
+    await db.flush()  # get incident.id before notifications
+
+    # Notify admins/dispatchers + linked driver — same transaction as the insert
+    await notify_incident_reported(db, incident, reporter_id=current_user.id)
+
     await db.commit()
     await db.refresh(incident)
+
     return ApiResponse(
         data=await resolve_incident_response(db, incident),
         message=f"Incident {incident_number} reported",

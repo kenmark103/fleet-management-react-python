@@ -16,17 +16,21 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as AuthTripsIndexRouteImport } from './routes/_auth/trips/index'
+import { Route as AuthReportsIndexRouteImport } from './routes/_auth/reports/index'
 import { Route as AuthNotificationsIndexRouteImport } from './routes/_auth/notifications/index'
 import { Route as AuthMaintenanceIndexRouteImport } from './routes/_auth/maintenance/index'
+import { Route as AuthIncidentsIndexRouteImport } from './routes/_auth/incidents/index'
 import { Route as AuthFuelIndexRouteImport } from './routes/_auth/fuel/index'
 import { Route as AuthDriversIndexRouteImport } from './routes/_auth/drivers/index'
 import { Route as AuthTripsNewRouteImport } from './routes/_auth/trips/new'
 import { Route as AuthSettingsSystemRouteImport } from './routes/_auth/settings/system'
 import { Route as AuthSettingsProfileRouteImport } from './routes/_auth/settings/profile'
+import { Route as AuthIncidentsNewRouteImport } from './routes/_auth/incidents/new'
 import { Route as AuthDriversSetupRouteImport } from './routes/_auth/drivers/setup'
 import { Route as AuthDriversNewRouteImport } from './routes/_auth/drivers/new'
 import { Route as AuthTripsTripIdIndexRouteImport } from './routes/_auth/trips/$tripId/index'
 import { Route as AuthSettingsUsersIndexRouteImport } from './routes/_auth/settings/users/index'
+import { Route as AuthIncidentsIncidentIdIndexRouteImport } from './routes/_auth/incidents/$incidentId/index'
 import { Route as AuthFleetTrucksIndexRouteImport } from './routes/_auth/fleet/trucks/index'
 import { Route as AuthFleetTrailersIndexRouteImport } from './routes/_auth/fleet/trailers/index'
 import { Route as AuthDriversDriverIdIndexRouteImport } from './routes/_auth/drivers/$driverId/index'
@@ -84,6 +88,11 @@ const AuthTripsIndexRoute = AuthTripsIndexRouteImport.update({
   path: '/trips/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthReportsIndexRoute = AuthReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthNotificationsIndexRoute = AuthNotificationsIndexRouteImport.update({
   id: '/notifications/',
   path: '/notifications/',
@@ -92,6 +101,11 @@ const AuthNotificationsIndexRoute = AuthNotificationsIndexRouteImport.update({
 const AuthMaintenanceIndexRoute = AuthMaintenanceIndexRouteImport.update({
   id: '/maintenance/',
   path: '/maintenance/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthIncidentsIndexRoute = AuthIncidentsIndexRouteImport.update({
+  id: '/incidents/',
+  path: '/incidents/',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthFuelIndexRoute = AuthFuelIndexRouteImport.update({
@@ -119,6 +133,11 @@ const AuthSettingsProfileRoute = AuthSettingsProfileRouteImport.update({
   path: '/settings/profile',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthIncidentsNewRoute = AuthIncidentsNewRouteImport.update({
+  id: '/incidents/new',
+  path: '/incidents/new',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthDriversSetupRoute = AuthDriversSetupRouteImport.update({
   id: '/drivers/setup',
   path: '/drivers/setup',
@@ -139,6 +158,12 @@ const AuthSettingsUsersIndexRoute = AuthSettingsUsersIndexRouteImport.update({
   path: '/settings/users/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthIncidentsIncidentIdIndexRoute =
+  AuthIncidentsIncidentIdIndexRouteImport.update({
+    id: '/incidents/$incidentId/',
+    path: '/incidents/$incidentId/',
+    getParentRoute: () => AuthRoute,
+  } as any)
 const AuthFleetTrucksIndexRoute = AuthFleetTrucksIndexRouteImport.update({
   id: '/fleet/trucks/',
   path: '/fleet/trucks/',
@@ -270,13 +295,16 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
   '/drivers/setup': typeof AuthDriversSetupRoute
+  '/incidents/new': typeof AuthIncidentsNewRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
   '/trips/new': typeof AuthTripsNewRoute
   '/drivers/': typeof AuthDriversIndexRoute
   '/fuel/': typeof AuthFuelIndexRoute
+  '/incidents/': typeof AuthIncidentsIndexRoute
   '/maintenance/': typeof AuthMaintenanceIndexRoute
   '/notifications/': typeof AuthNotificationsIndexRoute
+  '/reports/': typeof AuthReportsIndexRoute
   '/trips/': typeof AuthTripsIndexRoute
   '/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
   '/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
@@ -290,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/drivers/$driverId/': typeof AuthDriversDriverIdIndexRoute
   '/fleet/trailers/': typeof AuthFleetTrailersIndexRoute
   '/fleet/trucks/': typeof AuthFleetTrucksIndexRoute
+  '/incidents/$incidentId/': typeof AuthIncidentsIncidentIdIndexRoute
   '/settings/users/': typeof AuthSettingsUsersIndexRoute
   '/trips/$tripId/': typeof AuthTripsTripIdIndexRoute
   '/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
@@ -311,13 +340,16 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthDashboardRoute
   '/drivers/new': typeof AuthDriversNewRoute
   '/drivers/setup': typeof AuthDriversSetupRoute
+  '/incidents/new': typeof AuthIncidentsNewRoute
   '/settings/profile': typeof AuthSettingsProfileRoute
   '/settings/system': typeof AuthSettingsSystemRoute
   '/trips/new': typeof AuthTripsNewRoute
   '/drivers': typeof AuthDriversIndexRoute
   '/fuel': typeof AuthFuelIndexRoute
+  '/incidents': typeof AuthIncidentsIndexRoute
   '/maintenance': typeof AuthMaintenanceIndexRoute
   '/notifications': typeof AuthNotificationsIndexRoute
+  '/reports': typeof AuthReportsIndexRoute
   '/trips': typeof AuthTripsIndexRoute
   '/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
   '/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
@@ -331,6 +363,7 @@ export interface FileRoutesByTo {
   '/drivers/$driverId': typeof AuthDriversDriverIdIndexRoute
   '/fleet/trailers': typeof AuthFleetTrailersIndexRoute
   '/fleet/trucks': typeof AuthFleetTrucksIndexRoute
+  '/incidents/$incidentId': typeof AuthIncidentsIncidentIdIndexRoute
   '/settings/users': typeof AuthSettingsUsersIndexRoute
   '/trips/$tripId': typeof AuthTripsTripIdIndexRoute
   '/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
@@ -354,13 +387,16 @@ export interface FileRoutesById {
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/drivers/new': typeof AuthDriversNewRoute
   '/_auth/drivers/setup': typeof AuthDriversSetupRoute
+  '/_auth/incidents/new': typeof AuthIncidentsNewRoute
   '/_auth/settings/profile': typeof AuthSettingsProfileRoute
   '/_auth/settings/system': typeof AuthSettingsSystemRoute
   '/_auth/trips/new': typeof AuthTripsNewRoute
   '/_auth/drivers/': typeof AuthDriversIndexRoute
   '/_auth/fuel/': typeof AuthFuelIndexRoute
+  '/_auth/incidents/': typeof AuthIncidentsIndexRoute
   '/_auth/maintenance/': typeof AuthMaintenanceIndexRoute
   '/_auth/notifications/': typeof AuthNotificationsIndexRoute
+  '/_auth/reports/': typeof AuthReportsIndexRoute
   '/_auth/trips/': typeof AuthTripsIndexRoute
   '/_auth/drivers/$driverId/edit': typeof AuthDriversDriverIdEditRoute
   '/_auth/fleet/trailers/new': typeof AuthFleetTrailersNewRoute
@@ -374,6 +410,7 @@ export interface FileRoutesById {
   '/_auth/drivers/$driverId/': typeof AuthDriversDriverIdIndexRoute
   '/_auth/fleet/trailers/': typeof AuthFleetTrailersIndexRoute
   '/_auth/fleet/trucks/': typeof AuthFleetTrucksIndexRoute
+  '/_auth/incidents/$incidentId/': typeof AuthIncidentsIncidentIdIndexRoute
   '/_auth/settings/users/': typeof AuthSettingsUsersIndexRoute
   '/_auth/trips/$tripId/': typeof AuthTripsTripIdIndexRoute
   '/_auth/fleet/trailers/$trailerId/edit': typeof AuthFleetTrailersTrailerIdEditRoute
@@ -397,13 +434,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/drivers/new'
     | '/drivers/setup'
+    | '/incidents/new'
     | '/settings/profile'
     | '/settings/system'
     | '/trips/new'
     | '/drivers/'
     | '/fuel/'
+    | '/incidents/'
     | '/maintenance/'
     | '/notifications/'
+    | '/reports/'
     | '/trips/'
     | '/drivers/$driverId/edit'
     | '/fleet/trailers/new'
@@ -417,6 +457,7 @@ export interface FileRouteTypes {
     | '/drivers/$driverId/'
     | '/fleet/trailers/'
     | '/fleet/trucks/'
+    | '/incidents/$incidentId/'
     | '/settings/users/'
     | '/trips/$tripId/'
     | '/fleet/trailers/$trailerId/edit'
@@ -438,13 +479,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/drivers/new'
     | '/drivers/setup'
+    | '/incidents/new'
     | '/settings/profile'
     | '/settings/system'
     | '/trips/new'
     | '/drivers'
     | '/fuel'
+    | '/incidents'
     | '/maintenance'
     | '/notifications'
+    | '/reports'
     | '/trips'
     | '/drivers/$driverId/edit'
     | '/fleet/trailers/new'
@@ -458,6 +502,7 @@ export interface FileRouteTypes {
     | '/drivers/$driverId'
     | '/fleet/trailers'
     | '/fleet/trucks'
+    | '/incidents/$incidentId'
     | '/settings/users'
     | '/trips/$tripId'
     | '/fleet/trailers/$trailerId/edit'
@@ -480,13 +525,16 @@ export interface FileRouteTypes {
     | '/_auth/dashboard'
     | '/_auth/drivers/new'
     | '/_auth/drivers/setup'
+    | '/_auth/incidents/new'
     | '/_auth/settings/profile'
     | '/_auth/settings/system'
     | '/_auth/trips/new'
     | '/_auth/drivers/'
     | '/_auth/fuel/'
+    | '/_auth/incidents/'
     | '/_auth/maintenance/'
     | '/_auth/notifications/'
+    | '/_auth/reports/'
     | '/_auth/trips/'
     | '/_auth/drivers/$driverId/edit'
     | '/_auth/fleet/trailers/new'
@@ -500,6 +548,7 @@ export interface FileRouteTypes {
     | '/_auth/drivers/$driverId/'
     | '/_auth/fleet/trailers/'
     | '/_auth/fleet/trucks/'
+    | '/_auth/incidents/$incidentId/'
     | '/_auth/settings/users/'
     | '/_auth/trips/$tripId/'
     | '/_auth/fleet/trailers/$trailerId/edit'
@@ -573,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthTripsIndexRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/reports/': {
+      id: '/_auth/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof AuthReportsIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/notifications/': {
       id: '/_auth/notifications/'
       path: '/notifications'
@@ -585,6 +641,13 @@ declare module '@tanstack/react-router' {
       path: '/maintenance'
       fullPath: '/maintenance/'
       preLoaderRoute: typeof AuthMaintenanceIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/incidents/': {
+      id: '/_auth/incidents/'
+      path: '/incidents'
+      fullPath: '/incidents/'
+      preLoaderRoute: typeof AuthIncidentsIndexRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/fuel/': {
@@ -622,6 +685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSettingsProfileRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/incidents/new': {
+      id: '/_auth/incidents/new'
+      path: '/incidents/new'
+      fullPath: '/incidents/new'
+      preLoaderRoute: typeof AuthIncidentsNewRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/drivers/setup': {
       id: '/_auth/drivers/setup'
       path: '/drivers/setup'
@@ -648,6 +718,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/users'
       fullPath: '/settings/users/'
       preLoaderRoute: typeof AuthSettingsUsersIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/incidents/$incidentId/': {
+      id: '/_auth/incidents/$incidentId/'
+      path: '/incidents/$incidentId'
+      fullPath: '/incidents/$incidentId/'
+      preLoaderRoute: typeof AuthIncidentsIncidentIdIndexRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/fleet/trucks/': {
@@ -811,13 +888,16 @@ interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthDriversNewRoute: typeof AuthDriversNewRoute
   AuthDriversSetupRoute: typeof AuthDriversSetupRoute
+  AuthIncidentsNewRoute: typeof AuthIncidentsNewRoute
   AuthSettingsProfileRoute: typeof AuthSettingsProfileRoute
   AuthSettingsSystemRoute: typeof AuthSettingsSystemRoute
   AuthTripsNewRoute: typeof AuthTripsNewRoute
   AuthDriversIndexRoute: typeof AuthDriversIndexRoute
   AuthFuelIndexRoute: typeof AuthFuelIndexRoute
+  AuthIncidentsIndexRoute: typeof AuthIncidentsIndexRoute
   AuthMaintenanceIndexRoute: typeof AuthMaintenanceIndexRoute
   AuthNotificationsIndexRoute: typeof AuthNotificationsIndexRoute
+  AuthReportsIndexRoute: typeof AuthReportsIndexRoute
   AuthTripsIndexRoute: typeof AuthTripsIndexRoute
   AuthDriversDriverIdEditRoute: typeof AuthDriversDriverIdEditRoute
   AuthFleetTrailersNewRoute: typeof AuthFleetTrailersNewRoute
@@ -831,6 +911,7 @@ interface AuthRouteChildren {
   AuthDriversDriverIdIndexRoute: typeof AuthDriversDriverIdIndexRoute
   AuthFleetTrailersIndexRoute: typeof AuthFleetTrailersIndexRoute
   AuthFleetTrucksIndexRoute: typeof AuthFleetTrucksIndexRoute
+  AuthIncidentsIncidentIdIndexRoute: typeof AuthIncidentsIncidentIdIndexRoute
   AuthSettingsUsersIndexRoute: typeof AuthSettingsUsersIndexRoute
   AuthTripsTripIdIndexRoute: typeof AuthTripsTripIdIndexRoute
   AuthFleetTrailersTrailerIdEditRoute: typeof AuthFleetTrailersTrailerIdEditRoute
@@ -849,13 +930,16 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
   AuthDriversNewRoute: AuthDriversNewRoute,
   AuthDriversSetupRoute: AuthDriversSetupRoute,
+  AuthIncidentsNewRoute: AuthIncidentsNewRoute,
   AuthSettingsProfileRoute: AuthSettingsProfileRoute,
   AuthSettingsSystemRoute: AuthSettingsSystemRoute,
   AuthTripsNewRoute: AuthTripsNewRoute,
   AuthDriversIndexRoute: AuthDriversIndexRoute,
   AuthFuelIndexRoute: AuthFuelIndexRoute,
+  AuthIncidentsIndexRoute: AuthIncidentsIndexRoute,
   AuthMaintenanceIndexRoute: AuthMaintenanceIndexRoute,
   AuthNotificationsIndexRoute: AuthNotificationsIndexRoute,
+  AuthReportsIndexRoute: AuthReportsIndexRoute,
   AuthTripsIndexRoute: AuthTripsIndexRoute,
   AuthDriversDriverIdEditRoute: AuthDriversDriverIdEditRoute,
   AuthFleetTrailersNewRoute: AuthFleetTrailersNewRoute,
@@ -869,6 +953,7 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthDriversDriverIdIndexRoute: AuthDriversDriverIdIndexRoute,
   AuthFleetTrailersIndexRoute: AuthFleetTrailersIndexRoute,
   AuthFleetTrucksIndexRoute: AuthFleetTrucksIndexRoute,
+  AuthIncidentsIncidentIdIndexRoute: AuthIncidentsIncidentIdIndexRoute,
   AuthSettingsUsersIndexRoute: AuthSettingsUsersIndexRoute,
   AuthTripsTripIdIndexRoute: AuthTripsTripIdIndexRoute,
   AuthFleetTrailersTrailerIdEditRoute: AuthFleetTrailersTrailerIdEditRoute,

@@ -2,18 +2,23 @@
  * routes/_auth/incidents/index.tsx
  * Fleet Management System — Phase 8
  *
- * Incidents list page with filtering by status, severity, type and search.
+ * Incidents list page.
+ * "Report Incident" opens an inline Sheet containing IncidentForm
+ * instead of navigating to /incidents/new — so users never leave the list.
  */
 
 import { useState } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertTriangle, Plus, Search } from "lucide-react"
-import { useIncidents, useIncidentSummary, useDeleteIncident } from "@/hooks/useIncidents"
-import { PageHeader } from "@/components/molecules/PageHeader"
+import { toast } from "sonner"
+
+import { useIncidents, useIncidentSummary, useDeleteIncident, useCreateIncident } from "@/hooks/useIncidents"
+import { IncidentForm } from "@/components/forms/IncidentForm"
+import { PageHeader }   from "@/components/molecules/PageHeader"
 import { ConfirmDialog } from "@/components/atoms/ConfirmDialog"
-import { StatusBadge } from "@/components/atoms/StatusBadge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { StatusBadge }  from "@/components/atoms/StatusBadge"
+import { Button }       from "@/components/ui/button"
+import { Input }        from "@/components/ui/input"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -21,32 +26,44 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Badge }        from "@/components/ui/badge"
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet"
+
 import { formatDate } from "@/lib/utils"
 import {
   INCIDENT_STATUSES, INCIDENT_TYPES, INCIDENT_TYPE_LABELS, INCIDENT_SEVERITY_COLORS,
 } from "@/lib/constants"
-import type { IncidentParams } from "@/types/incidents"
 import { useAuth } from "@/lib/auth-context"
+import type { IncidentCreate, IncidentParams } from "@/types/incidents"
 
 export const Route = createFileRoute("/_auth/incidents/")({
   component: IncidentsPage,
 })
 
 function IncidentsPage() {
-  const { user } = useAuth()
-  const canManage = user?.role === "ADMIN" || user?.role === "DISPATCHER"
+  const { user }    = useAuth()
+  const canManage   = user?.role === "ADMIN" || user?.role === "DISPATCHER"
 
-  const [params, setParams] = useState<IncidentParams>({ page: 1, pageSize: 20 })
-  const [search, setSearch]   = useState("")
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [params, setParams]       = useState<IncidentParams>({ page: 1, pageSize: 20 })
+  const [search, setSearch]       = useState("")
+  const [deleteId, setDeleteId]   = useState<string | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
 
-  const { data, isLoading } = useIncidents({ ...params, search: search || undefined })
-  const { data: summary }   = useIncidentSummary()
-  const deleteMutation       = useDeleteIncident()
+  const { data, isLoading }  = useIncidents({ ...params, search: search || undefined })
+  const { data: summary }    = useIncidentSummary()
+  const deleteMutation        = useDeleteIncident()
+  const createMutation        = useCreateIncident()
 
   function setFilter(key: keyof IncidentParams, value: string | undefined) {
     setParams(p => ({ ...p, [key]: value || undefined, page: 1 }))
+  }
+
+  async function handleCreate(data: IncidentCreate) {
+    const res = await createMutation.mutateAsync(data)
+    toast.success(`Incident ${res.data.incidentNumber} reported`)
+    setReportOpen(false)
   }
 
   return (
@@ -56,12 +73,10 @@ function IncidentsPage() {
         subtitle="Report and track fleet incidents"
         icon={<AlertTriangle className="h-5 w-5" />}
         actions={
-          <Link to="/incidents/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Report Incident
-            </Button>
-          </Link>
+          <Button onClick={() => setReportOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Report Incident
+          </Button>
         }
       />
 
@@ -69,12 +84,12 @@ function IncidentsPage() {
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
-            { label: "Total",        value: summary.total,       color: "text-foreground" },
-            { label: "Open",         value: summary.open,        color: "text-blue-600"   },
-            { label: "Under Review", value: summary.underReview, color: "text-yellow-600" },
-            { label: "Resolved",     value: summary.resolved,    color: "text-emerald-600"},
-            { label: "Closed",       value: summary.closed,      color: "text-gray-500"   },
-            { label: "Critical",     value: summary.critical,    color: "text-red-600"    },
+            { label: "Total",        value: summary.total,       color: "text-foreground"  },
+            { label: "Open",         value: summary.open,        color: "text-blue-600"    },
+            { label: "Under Review", value: summary.underReview, color: "text-yellow-600"  },
+            { label: "Resolved",     value: summary.resolved,    color: "text-emerald-600" },
+            { label: "Closed",       value: summary.closed,      color: "text-gray-500"    },
+            { label: "Critical",     value: summary.critical,    color: "text-red-600"     },
           ].map(({ label, value, color }) => (
             <Card key={label} className="text-center">
               <CardHeader className="pb-1 pt-4">
@@ -107,7 +122,9 @@ function IncidentsPage() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {INCIDENT_STATUSES.map(s => (
-              <SelectItem key={s} value={s} className="capitalize">{s.replace("_", " ")}</SelectItem>
+              <SelectItem key={s} value={s} className="capitalize">
+                {s.replace("_", " ")}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -246,7 +263,31 @@ function IncidentsPage() {
         </div>
       )}
 
-      {/* Delete confirm */}
+      {/* ── Report Incident Sheet ── */}
+      <Sheet open={reportOpen} onOpenChange={setReportOpen}>
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto sm:max-w-xl"
+        >
+          <SheetHeader className="mb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Report Incident
+            </SheetTitle>
+            <SheetDescription>
+              Log a new fleet incident. Admins and dispatchers will be notified immediately.
+            </SheetDescription>
+          </SheetHeader>
+
+          <IncidentForm
+            onSubmit={handleCreate}
+            isLoading={createMutation.isPending}
+            onCancel={() => setReportOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Delete confirm ── */}
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={open => { if (!open) setDeleteId(null) }}
