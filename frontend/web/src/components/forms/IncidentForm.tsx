@@ -2,22 +2,27 @@
  * components/forms/IncidentForm.tsx
  * Fleet Management System — Phase 8
  *
- * Self-contained incident creation form.
+ * Self-contained incident creation / reporting form.
  * Used by:
- *   • routes/_auth/incidents/new.tsx  (full page)
- *   • routes/_auth/incidents/index.tsx (inside a Sheet)
+ *   • routes/_auth/incidents/new.tsx  (full page — primary entry point)
  *
  * Trip selector auto-populates driver + truck from the trip's assignment.
- * All three can also be set independently — picking a different driver/truck
- * after a trip is selected clears the auto-fill indicator.
+ * Picking a different driver/truck after a trip is selected clears the
+ * auto-fill indicator but keeps the trip link.
+ *
+ *  All three resource hooks are capped at pageSize: 100 — the backend
+ *     list endpoints enforce le=100 and return 422 for anything higher.
  */
 
 import { useState, useMemo } from "react"
-import { Check, ChevronsUpDown, Link2, Route, Truck as TruckIcon, User } from "lucide-react"
+import {
+  Check, ChevronsUpDown, Link2,
+  Route as RouteIcon, Truck as TruckIcon, User,
+} from "lucide-react"
 
-import { useDrivers } from "@/hooks/useDrivers"
-import { useTrucks }  from "@/hooks/useFleet"
-import { useTrips }   from "@/hooks/useTrips"
+import { useDrivers }  from "@/hooks/useDrivers"
+import { useTrucks, useTrailers } from "@/hooks/useFleet"
+import { useTrips }    from "@/hooks/useTrips"
 
 import { Button }   from "@/components/ui/button"
 import { Input }    from "@/components/ui/input"
@@ -53,7 +58,7 @@ export interface IncidentFormProps {
 const SEVERITIES = ["low", "medium", "high", "critical"] as const
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RESOURCE COMBOBOX (reusable within this file)
+// RESOURCE COMBOBOX
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ComboOption { value: string; label: string; sublabel?: string }
@@ -93,7 +98,7 @@ function ResourceCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[360px] p-0" align="start">
         <Command>
-          <CommandInput placeholder={`Search…`} />
+          <CommandInput placeholder="Search…" />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
@@ -110,7 +115,10 @@ function ResourceCombobox({
                   onSelect={() => { onSelect(opt.value); setOpen(false) }}
                 >
                   <Check
-                    className={cn("mr-2 h-4 w-4", value === opt.value ? "opacity-100" : "opacity-0")}
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === opt.value ? "opacity-100" : "opacity-0",
+                    )}
                   />
                   <div>
                     <p className="text-sm font-medium">{opt.label}</p>
@@ -133,14 +141,14 @@ function ResourceCombobox({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProps) {
-  // ── resource data ──
-  const { data: driversData } = useDrivers({ pageSize: 200, status: "active" })
-  // useTrucks from useFleet: api.listTrucks returns paginated — access .data
-  const { data: trucksData }  = useTrucks({ pageSize: 200, status: "active" })
-  // useTrips: show active trips only; drivers about to report an incident are en-route
-  const { data: tripsData }   = useTrips({ pageSize: 200 })
 
-  // ── option lists ──
+  // ── resource data — pageSize capped at 100 (backend enforces le=100) ──
+  const { data: driversData }  = useDrivers ({ pageSize: 100, status: "active" })
+  const { data: trucksData }   = useTrucks  ({ pageSize: 100, status: "active" })
+  const { data: trailersData } = useTrailers({ pageSize: 100 })
+  const { data: tripsData }    = useTrips   ({ pageSize: 100 })
+
+  // ── derived option lists ──
   const driverOptions = useMemo<ComboOption[]>(() =>
     (driversData?.data ?? []).map(d => ({
       value:    d.id,
@@ -149,12 +157,18 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
     })), [driversData])
 
   const truckOptions = useMemo<ComboOption[]>(() =>
-    // useTrucks returns the raw fleet-api response; shape is { data: Truck[] }
     (trucksData?.data ?? []).map((t: any) => ({
       value:    t.id,
       label:    t.plateNumber ?? t.plate_number,
       sublabel: `${t.make} ${t.model}`,
     })), [trucksData])
+
+  const trailerOptions = useMemo<ComboOption[]>(() =>
+    (trailersData?.data ?? []).map((t: any) => ({
+      value:    t.id,
+      label:    t.plateNumber ?? t.plate_number,
+      sublabel: `${t.type ?? ""} ${t.make} ${t.model}`.trim(),
+    })), [trailersData])
 
   const tripOptions = useMemo<ComboOption[]>(() =>
     (tripsData?.data ?? []).map(t => ({
@@ -169,32 +183,29 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
     incidentDate: new Date().toISOString().slice(0, 16),
   })
   const [autoFilledTripId, setAutoFilledTripId] = useState<string | null>(null)
-  const [errors, setErrors] = useState<Partial<Record<keyof IncidentCreate, string>>>({})
+  const [errors, setErrors]                     = useState<Partial<Record<keyof IncidentCreate, string>>>({})
 
   function setField<K extends keyof IncidentCreate>(key: K, value: IncidentCreate[K] | "") {
     setForm(f => ({ ...f, [key]: value === "" ? undefined : value }))
     if (errors[key]) setErrors(e => ({ ...e, [key]: undefined }))
   }
 
+  /** Selecting a trip auto-fills driver + truck from the trip's assignment. */
   function handleTripSelect(tripId: string) {
     setField("tripId", tripId)
-    if (!tripId) {
-      setAutoFilledTripId(null)
-      return
-    }
+    if (!tripId) { setAutoFilledTripId(null); return }
     const trip = tripsData?.data.find(t => t.id === tripId)
     if (!trip) return
-    // Auto-populate driver + truck from the trip
     if (trip.assignedDriverId) setField("driverId", trip.assignedDriverId)
     if (trip.assignedTruckId)  setField("truckId",  trip.assignedTruckId)
     setAutoFilledTripId(tripId)
   }
 
+  /** Manual override clears the blue auto-fill indicator. */
   function handleDriverSelect(id: string) {
     setField("driverId", id)
-    setAutoFilledTripId(null)  // manual override clears the indicator
+    setAutoFilledTripId(null)
   }
-
   function handleTruckSelect(id: string) {
     setField("truckId", id)
     setAutoFilledTripId(null)
@@ -202,20 +213,13 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-
-    // Validate required fields
     const newErrors: typeof errors = {}
-    if (!form.title)        newErrors.title       = "Required"
-    if (!form.description)  newErrors.description = "Required"
-    if (!form.type)         newErrors.type        = "Required"
-    if (!form.severity)     newErrors.severity    = "Required"
+    if (!form.title)        newErrors.title        = "Required"
+    if (!form.description)  newErrors.description  = "Required"
+    if (!form.type)         newErrors.type         = "Required"
+    if (!form.severity)     newErrors.severity     = "Required"
     if (!form.incidentDate) newErrors.incidentDate = "Required"
-
-    if (Object.keys(newErrors).length) {
-      setErrors(newErrors)
-      return
-    }
-
+    if (Object.keys(newErrors).length) { setErrors(newErrors); return }
     await onSubmit(form as IncidentCreate)
   }
 
@@ -223,13 +227,17 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
     ? tripOptions.find(t => t.value === autoFilledTripId)
     : null
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
 
-      {/* ── Incident Details ── */}
+      {/* ── Incident Details ──────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Incident Details
           </CardTitle>
         </CardHeader>
@@ -301,7 +309,9 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
                 onChange={e => setField("incidentDate", e.target.value)}
                 className={cn(errors.incidentDate && "border-destructive")}
               />
-              {errors.incidentDate && <p className="text-xs text-destructive">{errors.incidentDate}</p>}
+              {errors.incidentDate && (
+                <p className="text-xs text-destructive">{errors.incidentDate}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -328,19 +338,23 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
               onChange={e => setField("description", e.target.value)}
               className={cn(errors.description && "border-destructive")}
             />
-            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+            {errors.description && (
+              <p className="text-xs text-destructive">{errors.description}</p>
+            )}
           </div>
 
         </CardContent>
       </Card>
 
-      {/* ── Link to Trip (optional) ── */}
+      {/* ── Link to Trip ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            <Route className="h-3.5 w-3.5" />
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <RouteIcon className="h-3.5 w-3.5" />
             Link to Trip
-            <Badge variant="secondary" className="ml-auto text-xs font-normal normal-case">optional</Badge>
+            <Badge variant="secondary" className="ml-auto text-xs font-normal normal-case">
+              optional
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -351,12 +365,12 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
             options={tripOptions}
             value={form.tripId ?? ""}
             onSelect={handleTripSelect}
-            placeholder="Search active trips…"
+            placeholder="Search trips…"
           />
           {autoFilledTrip && (
             <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
               <Link2 className="h-3.5 w-3.5 shrink-0" />
-              Driver and truck auto-filled from trip&nbsp;
+              Driver and truck auto-filled from trip{" "}
               <span className="font-mono font-semibold">{autoFilledTrip.label}</span>.
               Change them below to override.
             </div>
@@ -364,13 +378,15 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
         </CardContent>
       </Card>
 
-      {/* ── Personnel & Assets ── */}
+      {/* ── Personnel & Assets ───────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <User className="h-3.5 w-3.5" />
             Personnel &amp; Assets
-            <Badge variant="secondary" className="ml-auto text-xs font-normal normal-case">optional</Badge>
+            <Badge variant="secondary" className="ml-auto text-xs font-normal normal-case">
+              optional
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -380,7 +396,9 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
             <div className="flex items-center justify-between">
               <Label>Driver</Label>
               {autoFilledTripId && form.driverId && (
-                <span className="text-xs text-blue-600 dark:text-blue-400">auto-filled from trip</span>
+                <span className="text-xs text-blue-600 dark:text-blue-400">
+                  auto-filled from trip
+                </span>
               )}
             </div>
             <ResourceCombobox
@@ -392,7 +410,7 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
             />
           </div>
 
-          {/* Truck + Trailer */}
+          {/* Truck + Trailer — full row each so labels have room */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -415,10 +433,11 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
 
             <div className="space-y-1.5">
               <Label>Trailer</Label>
-              <Input
-                placeholder="Trailer ID (optional)"
+              <ResourceCombobox
+                options={trailerOptions}
                 value={form.trailerId ?? ""}
-                onChange={e => setField("trailerId", e.target.value)}
+                onSelect={id => setField("trailerId", id)}
+                placeholder="Select trailer…"
               />
             </div>
           </div>
@@ -426,7 +445,7 @@ export function IncidentForm({ onSubmit, isLoading, onCancel }: IncidentFormProp
         </CardContent>
       </Card>
 
-      {/* ── Actions ── */}
+      {/* ── Actions ──────────────────────────────────────────────────────── */}
       <div className="flex justify-end gap-3 pt-1">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>

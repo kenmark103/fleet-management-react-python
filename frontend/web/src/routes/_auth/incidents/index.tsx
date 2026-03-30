@@ -2,23 +2,22 @@
  * routes/_auth/incidents/index.tsx
  * Fleet Management System — Phase 8
  *
- * Incidents list page.
- * "Report Incident" opens an inline Sheet containing IncidentForm
- * instead of navigating to /incidents/new — so users never leave the list.
+ * "Report Incident" navigates to /incidents/new (route, not a Sheet).
+ * Pagination uses the shadcn Pagination component.
  */
 
 import { useState } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlertTriangle, Plus, Search } from "lucide-react"
-import { toast } from "sonner"
 
-import { useIncidents, useIncidentSummary, useDeleteIncident, useCreateIncident } from "@/hooks/useIncidents"
-import { IncidentForm } from "@/components/forms/IncidentForm"
-import { PageHeader }   from "@/components/molecules/PageHeader"
+import {
+  useIncidents, useIncidentSummary, useDeleteIncident,
+} from "@/hooks/useIncidents"
+import { PageHeader }    from "@/components/molecules/PageHeader"
 import { ConfirmDialog } from "@/components/atoms/ConfirmDialog"
-import { StatusBadge }  from "@/components/atoms/StatusBadge"
-import { Button }       from "@/components/ui/button"
-import { Input }        from "@/components/ui/input"
+import { StatusBadge }   from "@/components/atoms/StatusBadge"
+import { Button }        from "@/components/ui/button"
+import { Input }         from "@/components/ui/input"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -26,61 +25,65 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge }        from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet"
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 import { formatDate } from "@/lib/utils"
 import {
   INCIDENT_STATUSES, INCIDENT_TYPES, INCIDENT_TYPE_LABELS, INCIDENT_SEVERITY_COLORS,
 } from "@/lib/constants"
-import { useAuth } from "@/lib/auth-context"
-import type { IncidentCreate, IncidentParams } from "@/types/incidents"
+import { useAuth }  from "@/lib/auth-context"
+import type { IncidentParams } from "@/types/incidents"
 
 export const Route = createFileRoute("/_auth/incidents/")({
   component: IncidentsPage,
 })
 
 function IncidentsPage() {
-  const { user }    = useAuth()
-  const canManage   = user?.role === "ADMIN" || user?.role === "DISPATCHER"
+  const { user }  = useAuth()
+  const canManage = user?.role === "ADMIN" || user?.role === "DISPATCHER"
 
-  const [params, setParams]       = useState<IncidentParams>({ page: 1, pageSize: 20 })
-  const [search, setSearch]       = useState("")
-  const [deleteId, setDeleteId]   = useState<string | null>(null)
-  const [reportOpen, setReportOpen] = useState(false)
+  const [params, setParams]     = useState<IncidentParams>({ page: 1, pageSize: 20 })
+  const [search, setSearch]     = useState("")
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data, isLoading }  = useIncidents({ ...params, search: search || undefined })
-  const { data: summary }    = useIncidentSummary()
-  const deleteMutation        = useDeleteIncident()
-  const createMutation        = useCreateIncident()
+  const { data, isLoading } = useIncidents({ ...params, search: search || undefined })
+  const { data: summary }   = useIncidentSummary()
+  const deleteMutation       = useDeleteIncident()
 
   function setFilter(key: keyof IncidentParams, value: string | undefined) {
     setParams(p => ({ ...p, [key]: value || undefined, page: 1 }))
   }
 
-  async function handleCreate(data: IncidentCreate) {
-    const res = await createMutation.mutateAsync(data)
-    toast.success(`Incident ${res.data.incidentNumber} reported`)
-    setReportOpen(false)
-  }
+  const currentPage  = params.page  ?? 1
+  const totalPages   = data?.meta.totalPages ?? 1
+  const totalItems   = data?.meta.totalItems ?? 0
 
   return (
     <div className="space-y-6">
+
+      {/* ── Header ── */}
       <PageHeader
         title="Incidents"
         subtitle="Report and track fleet incidents"
         icon={<AlertTriangle className="h-5 w-5" />}
         actions={
-          <Button onClick={() => setReportOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Report Incident
-          </Button>
+          <Link to="/incidents/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Report Incident
+            </Button>
+          </Link>
         }
       />
 
-      {/* Summary cards */}
+      {/* ── Summary cards ── */}
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[
@@ -93,7 +96,9 @@ function IncidentsPage() {
           ].map(({ label, value, color }) => (
             <Card key={label} className="text-center">
               <CardHeader className="pb-1 pt-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
+                <CardTitle className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </CardTitle>
               </CardHeader>
               <CardContent className="pb-4">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -103,7 +108,7 @@ function IncidentsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -111,7 +116,7 @@ function IncidentsPage() {
             placeholder="Search incidents…"
             className="pl-9"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setParams(p => ({ ...p, page: 1 })) }}
           />
         </div>
 
@@ -154,7 +159,7 @@ function IncidentsPage() {
         </Select>
       </div>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <Card>
         <Table>
           <TableHeader>
@@ -173,18 +178,18 @@ function IncidentsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 9 : 8} className="py-12 text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
-            ) : data?.data.length === 0 ? (
+            ) : !data?.data.length ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 9 : 8} className="py-12 text-center text-muted-foreground">
                   No incidents found.
                 </TableCell>
               </TableRow>
             ) : (
-              data?.data.map(incident => (
+              data.data.map(incident => (
                 <TableRow key={incident.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
                     <Link
@@ -198,8 +203,8 @@ function IncidentsPage() {
                   <TableCell className="max-w-[200px] truncate font-medium">
                     {incident.title}
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{INCIDENT_TYPE_LABELS[incident.type]}</span>
+                  <TableCell className="text-sm">
+                    {INCIDENT_TYPE_LABELS[incident.type]}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -236,56 +241,32 @@ function IncidentsPage() {
         </Table>
       </Card>
 
-      {/* Pagination */}
-      {data && data.meta.totalPages > 1 && (
+      {/* ── Pagination ── */}
+      {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {data.meta.totalItems} incidents
+            Showing page {currentPage} of {totalPages} &mdash; {totalItems} incidents
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!data.meta.hasPreviousPage}
-              onClick={() => setParams(p => ({ ...p, page: (p.page ?? 1) - 1 }))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!data.meta.hasNextPage}
-              onClick={() => setParams(p => ({ ...p, page: (p.page ?? 1) + 1 }))}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setParams(p => ({ ...p, page: currentPage - 1 }))}
+                  aria-disabled={currentPage <= 1}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setParams(p => ({ ...p, page: currentPage + 1 }))}
+                  aria-disabled={currentPage >= totalPages}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
-
-      {/* ── Report Incident Sheet ── */}
-      <Sheet open={reportOpen} onOpenChange={setReportOpen}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-xl"
-        >
-          <SheetHeader className="mb-6">
-            <SheetTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Report Incident
-            </SheetTitle>
-            <SheetDescription>
-              Log a new fleet incident. Admins and dispatchers will be notified immediately.
-            </SheetDescription>
-          </SheetHeader>
-
-          <IncidentForm
-            onSubmit={handleCreate}
-            isLoading={createMutation.isPending}
-            onCancel={() => setReportOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
 
       {/* ── Delete confirm ── */}
       <ConfirmDialog
@@ -303,6 +284,7 @@ function IncidentsPage() {
           })
         }}
       />
+
     </div>
   )
 }
