@@ -113,6 +113,7 @@ function NotificationsPage() {
           {TYPE_FILTERS.map((f) => (
             <button
               key={f.value}
+              data-testid={`notifications-filter-${f.value.toLowerCase()}`}
               onClick={() => { setTypeFilter(f.value); setPage(1); }}
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
@@ -128,6 +129,7 @@ function NotificationsPage() {
 
         {/* Unread toggle */}
         <button
+          data-testid="notifications-unread-toggle"
           onClick={() => { setUnreadOnly(v => !v); setPage(1); }}
           className={cn(
             "ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
@@ -142,7 +144,7 @@ function NotificationsPage() {
       </div>
 
       {/* List */}
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-xl border bg-card" data-testid="notifications-list">
         {isLoading ? (
           <NotificationsSkeleton />
         ) : notifications.length === 0 ? (
@@ -161,6 +163,7 @@ function NotificationsPage() {
               return (
                 <li
                   key={n.id}
+                  data-testid="notification-item"
                   className={cn(
                     "group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-muted/30",
                     !n.isRead && "bg-blue-50/40 dark:bg-blue-950/10"
@@ -222,6 +225,8 @@ function NotificationsPage() {
                         size="icon"
                         className="h-7 w-7"
                         title="Mark as read"
+                        aria-label="Mark as read"
+                        data-testid="notification-mark-read"
                         onClick={() => markRead.mutate(n.id)}
                       >
                         <CheckCheck className="h-3.5 w-3.5" />
@@ -232,6 +237,8 @@ function NotificationsPage() {
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
                       title="Delete"
+                      aria-label="Delete notification"
+                      data-testid="notification-delete"
                       onClick={() => deleteNotif.mutate(n.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

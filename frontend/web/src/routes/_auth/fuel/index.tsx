@@ -181,19 +181,34 @@ function FuelPage() {
       />
 
       <Tabs defaultValue="logs" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:flex">
-          <TabsTrigger value="logs" className="flex items-center gap-2">
+        <TabsList
+          className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:flex"
+          data-testid="fuel-tabs"
+        >
+          <TabsTrigger
+            value="logs"
+            className="flex items-center gap-2"
+            data-testid="fuel-tab-logs"
+          >
             <Fuel className="h-4 w-4" />
             Fuel Logs
           </TabsTrigger>
           {!isDriver && (
-            <TabsTrigger value="expenses" className="flex items-center gap-2">
+            <TabsTrigger
+              value="expenses"
+              className="flex items-center gap-2"
+              data-testid="fuel-tab-expenses"
+            >
               <Receipt className="h-4 w-4" />
               Expenses
             </TabsTrigger>
           )}
           {can("fuel:view-cost-reports") && (
-            <TabsTrigger value="reports" className="flex items-center gap-2">
+            <TabsTrigger
+              value="reports"
+              className="flex items-center gap-2"
+              data-testid="fuel-tab-reports"
+            >
               <BarChart3 className="h-4 w-4" />
               Reports
             </TabsTrigger>
@@ -203,7 +218,7 @@ function FuelPage() {
         {/* ═══════════════════════════════════════════════════════════════════
             FUEL LOGS TAB
         ═══════════════════════════════════════════════════════════════════ */}
-        <TabsContent value="logs" className="space-y-4">
+        <TabsContent value="logs" className="space-y-4" data-testid="fuel-panel-logs">
           {/* Filter bar */}
           <div className="flex flex-wrap items-center gap-3">
             <Input
@@ -239,7 +254,7 @@ function FuelPage() {
               )}
               {can("fuel:log-own") && (
                 <Link to="/fuel/logs/new">
-                  <Button size="sm">
+                  <Button size="sm" data-testid="add-fuel-btn">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Fuel Log
                   </Button>
@@ -249,7 +264,7 @@ function FuelPage() {
           </div>
 
           {/* Table */}
-          <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="rounded-lg border bg-card overflow-hidden" data-testid="fuel-logs-list">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
@@ -379,7 +394,7 @@ function FuelPage() {
             EXPENSES TAB
         ═══════════════════════════════════════════════════════════════════ */}
         {!isDriver && (
-          <TabsContent value="expenses" className="space-y-4">
+          <TabsContent value="expenses" className="space-y-4" data-testid="fuel-panel-expenses">
             {/* Filter bar */}
             <div className="flex flex-wrap items-center gap-3">
               <Select
@@ -423,7 +438,7 @@ function FuelPage() {
 
               {can("fuel:add-expense") && (
                 <Link to="/fuel/expenses/new" className="ml-auto">
-                  <Button size="sm">
+                  <Button size="sm" data-testid="add-expense-btn">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Expense
                   </Button>
@@ -432,7 +447,7 @@ function FuelPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="rounded-lg border bg-card overflow-hidden" data-testid="expenses-list">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
@@ -467,6 +482,7 @@ function FuelPage() {
                         </TableCell>
                         <TableCell>
                           <Badge
+                            data-testid="expense-category-badge"
                             variant="outline"
                             className={EXPENSE_CATEGORY_COLORS[expense.category]}
                           >
@@ -563,7 +579,7 @@ function FuelPage() {
             REPORTS TAB
         ═══════════════════════════════════════════════════════════════════ */}
         {can("fuel:view-cost-reports") && (
-          <TabsContent value="reports" className="space-y-6">
+          <TabsContent value="reports" className="space-y-6" data-testid="fuel-panel-reports">
             {/* Date range filter */}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm text-muted-foreground font-medium">Date range:</span>

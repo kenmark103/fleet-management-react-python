@@ -10,6 +10,7 @@ Exports a combined `settings_router` so main.py stays clean:
 
 from fastapi import APIRouter
 
+from routes.settings.dashboard import router as dashboard_router
 from routes.settings.users import router as users_router
 from routes.settings.profile import router as profile_router
 from routes.settings.system import router as system_route
@@ -18,5 +19,6 @@ settings_router = APIRouter()
 settings_router.include_router(users_router)
 settings_router.include_router(profile_router)
 settings_router.include_router(system_route)
+settings_router.include_router(dashboard_router)
 
 __all__ = ["settings_router"]

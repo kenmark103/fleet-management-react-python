@@ -20,6 +20,12 @@ from services.trip_service import (
     mark_resources_in_progress,
     release_resources,
 )
+from services.route_service import (
+    build_route_plan,
+    get_route_alternatives,
+    get_route_plan,
+    optimize_ad_hoc,
+)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, desc
@@ -30,7 +36,8 @@ from schemas.trips import (
     TripCreate, TripUpdate, TripResponse, TripStatusUpdateRequest,
     TripLocationPingResponse, AvailabilityResponse,
 )
-from schemas.common import UserRole, TripStatus, PaginationMeta, PaginatedResponse
+from schemas.common import ApiResponse, UserRole, TripStatus, PaginationMeta, PaginatedResponse
+from schemas.route_plans import RouteOptimizeQueryResponse, RoutePlanResponse, RoutePlanRecomputeResponse
 from services.geocoding import maybe_geocode
 from auth.deps import require_roles, get_current_user
 
@@ -122,6 +129,73 @@ async def get_trip_availability(
     (used for the initial TripForm render before dates are entered).
     """
     return await get_availability(db, departure, arrival, exclude_trip_id)
+
+
+async def _resolve_route_plan_response(db: DB, trip_id: str) -> RoutePlanResponse:
+    route_plan = await get_route_plan(db, trip_id)
+    if not route_plan:
+        raise HTTPException(status_code=404, detail="Route plan not found")
+
+    alternatives = await get_route_alternatives(db, route_plan.id)
+    return RoutePlanResponse(
+        id=route_plan.id,
+        trip_id=route_plan.trip_id,
+        origin_lat=route_plan.origin_lat,
+        origin_lng=route_plan.origin_lng,
+        destination_lat=route_plan.destination_lat,
+        destination_lng=route_plan.destination_lng,
+        route_geometry_ref=route_plan.route_geometry_ref,
+        distance_km=route_plan.distance_km,
+        duration_secs=route_plan.duration_secs,
+        eta_at=route_plan.eta_at,
+        optimization_source=route_plan.optimization_source,
+        score=route_plan.score,
+        generated_at=route_plan.generated_at,
+        alternatives=[
+            {
+                "id": alt.id,
+                "label": alt.label,
+                "geometry_ref": alt.geometry_ref,
+                "distance_km": alt.distance_km,
+                "duration_secs": alt.duration_secs,
+                "fuel_estimate": alt.fuel_estimate,
+                "rank": alt.rank,
+                "notes": alt.notes,
+            }
+            for alt in alternatives
+        ],
+    )
+
+
+@router.get(
+    "/route-optimize",
+    response_model=ApiResponse[RouteOptimizeQueryResponse],
+    dependencies=[Depends(require_roles([UserRole.ADMIN, UserRole.DISPATCHER]))],
+)
+async def optimize_route_query(
+    origin_lat: float = Query(...),
+    origin_lng: float = Query(...),
+    destination_lat: float = Query(...),
+    destination_lng: float = Query(...),
+):
+    payload = await optimize_ad_hoc(origin_lat, origin_lng, destination_lat, destination_lng)
+    response = RoutePlanResponse(
+        id="ad-hoc",
+        trip_id="ad-hoc",
+        origin_lat=origin_lat,
+        origin_lng=origin_lng,
+        destination_lat=destination_lat,
+        destination_lng=destination_lng,
+        route_geometry_ref=payload["route_geometry_ref"],
+        distance_km=payload["distance_km"],
+        duration_secs=payload["duration_secs"],
+        eta_at=None,
+        optimization_source="osrm",
+        score=round((payload["distance_km"] or 0) + ((payload["duration_secs"] or 0) / 3600), 2),
+        generated_at=datetime.now(timezone.utc),
+        alternatives=[],
+    )
+    return ApiResponse(data=RouteOptimizeQueryResponse(primary=response))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +338,43 @@ async def get_trip(
             raise HTTPException(status_code=403, detail="Not authorized to view this trip")
 
     return await resolve_trip_response(db, trip)
+
+
+@router.post(
+    "/{trip_id}/route-plan",
+    response_model=ApiResponse[RoutePlanRecomputeResponse],
+    dependencies=[Depends(require_roles([UserRole.ADMIN, UserRole.DISPATCHER]))],
+)
+async def generate_route_plan(
+    trip_id: str,
+    db: DB,
+):
+    trip = await db.get(Trip, trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    route_plan = await build_route_plan(db, trip)
+    response = await _resolve_route_plan_response(db, trip.id)
+    return ApiResponse(
+        data=RoutePlanRecomputeResponse(
+            trip_id=trip_id,
+            generated_at=route_plan.generated_at,
+            route_plan=response,
+        ),
+        message="Route plan generated",
+    )
+
+
+@router.get(
+    "/{trip_id}/route-plan",
+    response_model=ApiResponse[RoutePlanResponse],
+)
+async def fetch_route_plan(
+    trip_id: str,
+    db: DB,
+    _: Annotated[User, Depends(get_current_user)],
+):
+    return ApiResponse(data=await _resolve_route_plan_response(db, trip_id))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

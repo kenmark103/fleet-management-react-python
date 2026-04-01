@@ -14,19 +14,20 @@ Endpoints:
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select, func, and_
 
 from db.dbconfig import DB
-from db.models import Trip, WorkOrder, Driver, User
+from db.models import Driver, SavedReport, Trip, User, WorkOrder
+from auth.deps import get_current_user, require_roles
 from schemas.common import ApiResponse
+from schemas.customization import SavedReportCreate, SavedReportResponse
 from schemas.reports import (
-    TripsSummaryReport,
-    MaintenanceSummaryReport,
     DriverPerformanceReport,
     DriverPerformanceRow,
+    MaintenanceSummaryReport,
+    TripsSummaryReport,
 )
-from auth.deps import require_roles
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -175,3 +176,50 @@ async def driver_performance(
         date_from=date_from,
         date_to=date_to,
     ))
+
+
+@router.get(
+    "/saved",
+    response_model=ApiResponse[list[SavedReportResponse]],
+    dependencies=[Depends(require_roles(["ADMIN", "DISPATCHER", "FINANCE"]))],
+)
+async def list_saved_reports(
+    db: DB,
+    current_user: User = Depends(get_current_user),
+):
+    rows = (
+        await db.execute(
+            select(SavedReport)
+            .where(SavedReport.created_by == current_user.id)
+            .order_by(SavedReport.updated_at.desc())
+        )
+    ).scalars().all()
+    return ApiResponse(data=[SavedReportResponse.model_validate(row) for row in rows])
+
+
+@router.post(
+    "/saved",
+    response_model=ApiResponse[SavedReportResponse],
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles(["ADMIN", "DISPATCHER", "FINANCE"]))],
+)
+async def create_saved_report(
+    body: SavedReportCreate,
+    db: DB,
+    current_user: User = Depends(get_current_user),
+):
+    row = SavedReport(
+        created_by=current_user.id,
+        name=body.name,
+        description=body.description,
+        report_type=body.report_type,
+        filters_json=body.filters,
+        widget_config_json=[widget.model_dump() for widget in body.widgets],
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return ApiResponse(
+        data=SavedReportResponse.model_validate(row),
+        message="Saved report created",
+    )

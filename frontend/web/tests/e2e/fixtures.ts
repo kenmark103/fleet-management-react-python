@@ -29,7 +29,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREDENTIALS — must match SEED dict in tests/conftest.py exactly
@@ -122,34 +122,50 @@ type FleetFixtures = {
   driverPage: Page;
 };
 
+async function createLoggedInPage(
+  browser: Browser,
+  baseURL: string | undefined,
+  user: { email: string; password: string }
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  await loginAs(page, user);
+  return { context, page };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FIXTURES
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const test = base.extend<FleetFixtures>({
-  adminPage: async ({ page }, use) => {
-    await loginAs(page, USERS.admin);
+  adminPage: async ({ browser, baseURL }, use) => {
+    const { context, page } = await createLoggedInPage(browser, baseURL, USERS.admin);
     await use(page);
+    await context.close();
   },
 
-  mechanicPage: async ({ page }, use) => {
-    await loginAs(page, USERS.mechanic);
+  mechanicPage: async ({ browser, baseURL }, use) => {
+    const { context, page } = await createLoggedInPage(browser, baseURL, USERS.mechanic);
     await use(page);
+    await context.close();
   },
 
-  dispatcherPage: async ({ page }, use) => {
-    await loginAs(page, USERS.dispatcher);
+  dispatcherPage: async ({ browser, baseURL }, use) => {
+    const { context, page } = await createLoggedInPage(browser, baseURL, USERS.dispatcher);
     await use(page);
+    await context.close();
   },
 
-  financePage: async ({ page }, use) => {
-    await loginAs(page, USERS.finance);
+  financePage: async ({ browser, baseURL }, use) => {
+    const { context, page } = await createLoggedInPage(browser, baseURL, USERS.finance);
     await use(page);
+    await context.close();
   },
 
-  driverPage: async ({ page }, use) => {
-    await loginAs(page, USERS.driver);
+  driverPage: async ({ browser, baseURL }, use) => {
+    const { context, page } = await createLoggedInPage(browser, baseURL, USERS.driver);
     await use(page);
+    await context.close();
   },
 });
 

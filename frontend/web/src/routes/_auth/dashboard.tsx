@@ -29,6 +29,12 @@ import {
   useDashboardMaintenanceAlerts,
   useDashboardCostSummary,
 } from "../../hooks/useDashboard";
+import {
+  useAnomalies,
+  useDriverLeaderboard,
+  useFleetHealth,
+  useRecomputeAnalytics,
+} from "../../hooks/useAnalytics";
 
 export const Route = createFileRoute("/_auth/dashboard")({ component: DashboardPage });
 
@@ -47,6 +53,7 @@ function DashboardPage() {
         subtitle={formatDate(new Date().toISOString(), "long")}
       />
       <KpiGrid />
+      <OperationsIntelligence />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {(can("trips:view-all") || can("trips:view-own")) && <TripsWidget />}
@@ -66,7 +73,149 @@ function DashboardPage() {
 // KPI GRID
 // ─────────────────────────────────────────────────────────────────────────────
 
-function KpiGrid() {
+
+function OperationsIntelligence() {
+  const fleetHealth = useFleetHealth();
+  const anomalies = useAnomalies();
+  const leaderboard = useDriverLeaderboard();
+  const recompute = useRecomputeAnalytics();
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              Fleet Health
+            </CardTitle>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
+              {recompute.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Refresh"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {fleetHealth.isLoading ? (
+            <WidgetSkeleton rows={3} />
+          ) : fleetHealth.data ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground">Fleet average</p>
+                  <p className="mt-1 text-2xl font-bold">{fleetHealth.data.fleetAverageScore}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs text-muted-foreground">High risk trucks</p>
+                  <p className="mt-1 text-2xl font-bold text-amber-600">{fleetHealth.data.highRiskCount}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {fleetHealth.data.trucks.slice(0, 4).map((truck) => (
+                  <Link
+                    key={truck.truckId}
+                    to="/fleet/trucks/$truckId"
+                    params={{ truckId: truck.truckId }}
+                    className="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-muted/30"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{truck.plateNumber}</p>
+                      <p className="text-xs text-muted-foreground">{truck.predictedIssueType ?? "No dominant issue detected"}</p>
+                    </div>
+                    <Badge className={
+                      truck.riskLevel === "high"
+                        ? "bg-red-100 text-red-700"
+                        : truck.riskLevel === "medium"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-emerald-100 text-emerald-700"
+                    }>
+                      {truck.score}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState icon={Activity} message="No fleet health data yet" />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            Recent Anomalies
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {anomalies.isLoading ? (
+            <WidgetSkeleton rows={4} />
+          ) : anomalies.data && anomalies.data.length > 0 ? (
+            anomalies.data.slice(0, 5).map((event) => (
+              <div key={event.id} className="rounded-lg border px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{event.summary}</p>
+                  <Badge className={
+                    event.severity === "high"
+                      ? "bg-red-100 text-red-700"
+                      : event.severity === "medium"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-blue-100 text-blue-700"
+                  }>
+                    {event.severity}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {event.metricName} � {formatDate(event.detectedAt, "relative")}
+                </p>
+              </div>
+            ))
+          ) : (
+            <EmptyState icon={AlertTriangle} message="No anomalies open" />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Driver Leaderboard
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {leaderboard.isLoading ? (
+            <WidgetSkeleton rows={4} />
+          ) : leaderboard.data && leaderboard.data.entries.length > 0 ? (
+            leaderboard.data.entries.slice(0, 5).map((entry, index) => (
+              <Link
+                key={entry.driverId}
+                to="/drivers/$driverId"
+                params={{ driverId: entry.driverId }}
+                className="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{entry.driverName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Safety {entry.safetyScore} � Efficiency {entry.efficiencyScore}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-sm font-semibold">{entry.totalScore}</span>
+              </Link>
+            ))
+          ) : (
+            <EmptyState icon={Users} message="Leaderboard will appear after scoring runs" />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}function KpiGrid() {
   const { can }            = usePermission();
   const { formatCurrency } = useAppSettings();
 
@@ -496,7 +645,7 @@ function CostSummaryWidget() {
     <Card><CardContent className="p-5"><EmptyState icon={TrendingUp} message="No cost data yet" /></CardContent></Card>
   );
 
-  const { kpis, monthlyFuelCosts, monthlyExpenses, currency } = data;
+  const { kpis, monthlyFuelCosts, monthlyExpenses } = data;
 
   // Merge fuel + expense arrays on month for the sparkline
   const allMonths = Array.from(
@@ -626,3 +775,6 @@ function getGreeting(): string {
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
+
+
+

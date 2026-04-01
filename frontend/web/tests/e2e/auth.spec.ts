@@ -94,8 +94,8 @@ test.describe("Logout", () => {
     //
     // The item text is "Log out" (two words with a space). The shadcn
     // DropdownMenuItem renders with role="menuitem", not "button".
-    await page.locator("header").getByRole("button").last().click();
-    await page.getByRole("menuitem", { name: /log out/i }).click();
+    await page.getByTestId("user-menu-trigger").click();
+    await page.getByTestId("logout-menu-item").click();
 
     await page.waitForURL(/\/login/, { timeout: 8_000 });
     expect(page.url()).toContain("/login");
@@ -104,8 +104,8 @@ test.describe("Logout", () => {
   test("after logout, navigating to a protected route stays on /login", async ({
     adminPage: page,
   }) => {
-    await page.locator("header").getByRole("button").last().click();
-    await page.getByRole("menuitem", { name: /log out/i }).click();
+    await page.getByTestId("user-menu-trigger").click();
+    await page.getByTestId("logout-menu-item").click();
     await page.waitForURL(/\/login/);
 
     // /trips is a real _auth-guarded index route (routeTree: /_auth/trips/)
@@ -185,9 +185,8 @@ test.describe("Session persistence", () => {
 
   test("opening a new tab while logged in stays authenticated", async ({
     adminPage: page,
-    context,
   }) => {
-    const newTab = await context.newPage();
+    const newTab = await page.context().newPage();
     // /drivers is a real index route and ADMIN has access
     await newTab.goto("/drivers");
 

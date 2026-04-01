@@ -40,6 +40,7 @@ import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import { useOSRMRoute }         from "../../../../hooks/useOSRMRoute";
+import { useGenerateRoutePlan, useRoutePlan } from "../../../../hooks/useRoutePlans";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon   from "leaflet/dist/images/marker-icon.png";
@@ -97,7 +98,6 @@ import { formatDate, formatDistance, formatCurrency, formatNumber } from "../../
 import { INCIDENT_TYPE_LABELS, INCIDENT_SEVERITY_COLORS } from "../../../../lib/constants";
 import type { TripStatus, Trip } from "../../../../types/trips";
 import { toast }                 from "sonner";
-import { useAppSettings } from "#/lib/settings-context";
 
 export const Route = createFileRoute("/_auth/trips/$tripId/")({
   component: TripDetailPage,
@@ -115,6 +115,8 @@ function TripDetailPage() {
   const { data: trip, isLoading } = useTrip(tripId);
   const updateStatus = useUpdateTripStatus(tripId);
   const deleteTrip   = useDeleteTrip();
+  const routePlan = useRoutePlan(tripId);
+  const generateRoutePlan = useGenerateRoutePlan(tripId);
 
   const [statusDialog, setStatusDialog] = useState<{
     open:            boolean;
@@ -210,7 +212,7 @@ function TripDetailPage() {
   };
 
   const showFuelButton = trip.status === "en-route" && can("fuel:log-own");
-  const { formatCurrency, formatAppDate } = useAppSettings(); 
+
 
   return (
     <div className="space-y-6">
@@ -369,12 +371,84 @@ function TripDetailPage() {
         </div>
       </div>
 
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Route Intelligence</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Persisted OSRM route plan with ETA, alternates, and estimated fuel.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generateRoutePlan.mutate()}
+            disabled={generateRoutePlan.isPending}
+          >
+            {generateRoutePlan.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Navigation className="mr-2 h-4 w-4" />}
+            {routePlan.data ? "Refresh Route" : "Generate Route"}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {routePlan.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading route plan...</p>
+          ) : routePlan.data ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Distance</p>
+                  <p className="mt-1 text-xl font-semibold">{routePlan.data.distanceKm ? formatDistance(routePlan.data.distanceKm) : "—"}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">ETA</p>
+                  <p className="mt-1 text-xl font-semibold">{routePlan.data.etaAt ? formatDate(routePlan.data.etaAt, "short") : "—"}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {routePlan.data.durationSecs ? `${Math.round(routePlan.data.durationSecs / 3600)}h ${Math.round((routePlan.data.durationSecs % 3600) / 60)}m` : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Optimization</p>
+                  <p className="mt-1 text-xl font-semibold uppercase">{routePlan.data.optimizationSource}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Alternatives</p>
+                {routePlan.data.alternatives.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No alternate routes returned.</p>
+                ) : (
+                  routePlan.data.alternatives.map((option) => (
+                    <div key={option.id} className="rounded-lg border px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium">{option.label}</p>
+                          <p className="text-xs text-muted-foreground">{option.notes ?? "Generated from OSRM alternatives"}</p>
+                        </div>
+                        <Badge variant="outline">Rank {option.rank}</Badge>
+                      </div>
+                      <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                        <p>Distance: <span className="font-medium text-foreground">{option.distanceKm ? formatDistance(option.distanceKm) : "—"}</span></p>
+                        <p>Duration: <span className="font-medium text-foreground">{option.durationSecs ? `${Math.round(option.durationSecs / 60)} min` : "—"}</span></p>
+                        <p>Fuel estimate: <span className="font-medium text-foreground">{option.fuelEstimate ? `${formatNumber(option.fuelEstimate, 1)} L` : "—"}</span></p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No persisted route plan yet. Generate one to store recommended routing and alternate options for dispatch.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ── Trip Activity tabs (fuel / expenses / incidents) ─────────────────── */}
-      <TripActivityTabs
-        tripId={tripId}
-        trip={trip}
-        currency={trip.currency ?? "USD"}
-      />
+      <TripActivityTabs tripId={tripId} currency="USD" />
 
       {/* ── Quick fuel log sheet ──────────────────────────────────────────────── */}
       <QuickFuelLogSheet
@@ -426,11 +500,9 @@ function TripDetailPage() {
 
 function TripActivityTabs({
   tripId,
-  trip,
   currency,
 }: {
   tripId:   string;
-  trip:     Trip;
   currency: string;
 }) {
   // All three queries are independent — only the active tab is visible but
@@ -862,3 +934,10 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     </span>
   );
 }
+
+
+
+
+
+
+

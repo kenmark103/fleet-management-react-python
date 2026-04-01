@@ -14,6 +14,9 @@ from db.dbconfig import create_db_tables
 from auth.route_auth import router as auth_router
 from auth.route_oauth import router as oauth_router
 from routes.health import router as health_router
+from routes.analytics import router as analytics_router
+from routes.assistant import router as assistant_router
+from routes.documents import router as documents_router
 from routes.fleet import router as fleet_router
 from routes.drivers import router as drivers_router
 from routes.fuel import router as fuel_router
@@ -24,6 +27,7 @@ from routes.notifications import router as notifications_router
 from routes.vehicles import router as vehicle_router
 from routes.incidents import router as incident_router
 from routes.reports import router as reports_router
+from routes.widgets import router as widgets_router
 from services.expiry_checker import daily_expiry_check_loop
 from scripts.seed_admin import seed
 
@@ -71,6 +75,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(oauth_router)
 app.include_router(health_router)
+app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(assistant_router, prefix="/api/v1")
+app.include_router(documents_router, prefix="/api/v1")
 app.include_router(fleet_router, prefix="/api/v1")
 app.include_router(drivers_router, prefix="/api/v1")
 app.include_router(fuel_router, prefix="/api/v1")
@@ -81,6 +88,7 @@ app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(vehicle_router, prefix="/api/v1")
 app.include_router(incident_router, prefix="/api/v1")
 app.include_router(reports_router,   prefix="/api/v1")
+app.include_router(widgets_router, prefix="/api/v1")
 
 # Ensure static upload directories exist on every environment (local, Docker, Render).
 for _dir in ("static", "static/avatars", "static/trucks", "static/trailers"):

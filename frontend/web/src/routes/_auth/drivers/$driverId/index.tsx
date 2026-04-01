@@ -17,6 +17,11 @@ import {
   useDriverTrips,
 } from "../../../../hooks/useDrivers";
 import { usePermission } from "../../../../hooks/usePermission";
+import {
+  useDriverBehavior,
+  useDriverCoaching,
+  useDriverScorecard,
+} from "../../../../hooks/useAnalytics";
 import { DriverDocuments } from "../../../../components/drivers/DriverDocuments";
 import { ConfirmDialog } from "../../../../components/atoms/ConfirmDialog";
 import { Button } from "../../../../components/ui/button";
@@ -43,7 +48,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { formatDate, isExpired as checkExpired, isExpiringSoon as checkExpiringSoon, getStaticUrl } from "../../../../lib/utils";
-import { useIncidents } from "@/hooks/useIncidents";
 
 export const Route = createFileRoute("/_auth/drivers/$driverId/")({
   component: DriverDetailPage,
@@ -262,6 +266,96 @@ function TripHistoryTab({ driverId }: { driverId: string }) {
   );
 }
 
+function PerformanceTab({ driverId }: { driverId: string }) {
+  const scorecard = useDriverScorecard(driverId);
+  const behavior = useDriverBehavior(driverId);
+  const coaching = useDriverCoaching(driverId);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        {[
+          { label: "Total Score", value: scorecard.data?.totalScore ?? "—" },
+          { label: "Safety", value: scorecard.data?.safetyScore ?? "—" },
+          { label: "Efficiency", value: scorecard.data?.efficiencyScore ?? "—" },
+          { label: "Punctuality", value: scorecard.data?.punctualityScore ?? "—" },
+        ].map((item) => (
+          <div key={item.label} className="rounded-xl border p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</p>
+            <p className="mt-2 text-2xl font-bold">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {scorecard.data?.summary && (
+        <div className="rounded-xl border p-4">
+          <p className="text-sm font-semibold">Current score summary</p>
+          <p className="mt-2 text-sm text-muted-foreground">{scorecard.data.summary}</p>
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border overflow-hidden">
+          <div className="border-b px-4 py-3">
+            <p className="text-sm font-semibold">Behavior Events</p>
+          </div>
+          <div className="divide-y">
+            {behavior.isLoading ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">Loading events...</p>
+            ) : !behavior.data || behavior.data.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">No behavior alerts recorded.</p>
+            ) : (
+              behavior.data.slice(0, 8).map((event) => (
+                <div key={event.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">{event.eventType.replace(/_/g, " ")}</p>
+                    <Badge className={
+                      event.severity === "high"
+                        ? "bg-red-100 text-red-700 border-red-200"
+                        : event.severity === "medium"
+                        ? "bg-amber-100 text-amber-700 border-amber-200"
+                        : "bg-blue-100 text-blue-700 border-blue-200"
+                    }>
+                      {event.severity}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {event.notes ?? "Behavior threshold exceeded"} · {formatDate(event.occurredAt, "relative")}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border overflow-hidden">
+          <div className="border-b px-4 py-3">
+            <p className="text-sm font-semibold">Coaching Recommendations</p>
+          </div>
+          <div className="divide-y">
+            {coaching.isLoading ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">Loading recommendations...</p>
+            ) : !coaching.data || coaching.data.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">No coaching actions suggested right now.</p>
+            ) : (
+              coaching.data.map((item) => (
+                <div key={item.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium capitalize">{item.recommendationType}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(item.generatedAt, "short")}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.reason}</p>
+                  <p className="mt-2 text-sm font-medium">{item.suggestedAction}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -364,6 +458,7 @@ function DriverDetailPage() {
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
           {can("drivers:view-documents") && (
             <TabsTrigger value="documents">Documents</TabsTrigger>
           )}
@@ -374,6 +469,10 @@ function DriverDetailPage() {
 
         <TabsContent value="profile" className="mt-6">
           <ProfileTab driver={driver} driverId={driverId} />
+        </TabsContent>
+
+        <TabsContent value="performance" className="mt-6">
+          <PerformanceTab driverId={driverId} />
         </TabsContent>
 
         {can("drivers:view-documents") && (
@@ -406,3 +505,6 @@ function DriverDetailPage() {
     </div>
   );
 }
+
+
+

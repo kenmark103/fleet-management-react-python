@@ -27,6 +27,13 @@ from sqlalchemy import select, func, or_
 
 from db.dbconfig import DB
 from db.models import Driver, DriverDocument, Trip, User
+from schemas.analytics import (
+    CoachingRecommendationResponse,
+    DriverBehaviorEventResponse,
+    DriverLeaderboardEntry,
+    DriverLeaderboardResponse,
+    DriverScorecardResponse,
+)
 from schemas.common import PaginatedResponse, PaginationMeta, ApiResponse
 from schemas.drivers import (
     DriverCreate,
@@ -37,6 +44,13 @@ from schemas.drivers import (
     DriverSummary,
 )
 from auth.deps import get_current_user, require_roles
+from services.analytics_service import (
+    get_driver_behavior_events,
+    get_driver_coaching,
+    get_driver_leaderboard,
+    get_driver_scorecard,
+    recompute_analytics,
+)
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
@@ -221,6 +235,27 @@ async def create_driver(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+@router.get(
+    "/leaderboard",
+    response_model=ApiResponse[DriverLeaderboardResponse],
+    dependencies=[Depends(require_roles(["ADMIN", "DISPATCHER", "MECHANIC", "FINANCE"]))],
+)
+async def leaderboard(db: DB):
+    rows = await get_driver_leaderboard(db)
+    return ApiResponse(data=DriverLeaderboardResponse(
+        entries=[
+            DriverLeaderboardEntry(
+                driver_id=driver.id,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                total_score=scorecard.total_score,
+                safety_score=scorecard.safety_score,
+                efficiency_score=scorecard.efficiency_score,
+                punctuality_score=scorecard.punctuality_score,
+                generated_at=scorecard.generated_at,
+            )
+            for driver, scorecard in rows
+        ]
+    ))
 # DETAIL
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -242,6 +277,69 @@ async def get_driver(
         raise HTTPException(status_code=403, detail="Access denied")
 
     return ApiResponse(data=DriverResponse.model_validate(driver))
+
+
+@router.get(
+    "/{driver_id}/scorecard",
+    response_model=ApiResponse[DriverScorecardResponse],
+)
+async def driver_scorecard(
+    driver_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DB = None,
+):
+    driver = await _get_driver_or_404(driver_id, db)
+    if current_user.role == "DRIVER" and driver.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if current_user.role not in ("ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    row = await get_driver_scorecard(db, driver_id)
+    if row is None:
+        await recompute_analytics(db)
+        row = await get_driver_scorecard(db, driver_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Scorecard not found")
+
+    return ApiResponse(data=DriverScorecardResponse.model_validate(row))
+
+
+@router.get(
+    "/{driver_id}/behavior-events",
+    response_model=ApiResponse[list[DriverBehaviorEventResponse]],
+)
+async def driver_behavior_events(
+    driver_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DB = None,
+):
+    driver = await _get_driver_or_404(driver_id, db)
+    if current_user.role == "DRIVER" and driver.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if current_user.role not in ("ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    rows = await get_driver_behavior_events(db, driver_id)
+    return ApiResponse(data=[DriverBehaviorEventResponse.model_validate(row) for row in rows])
+
+
+@router.get(
+    "/{driver_id}/coaching",
+    response_model=ApiResponse[list[CoachingRecommendationResponse]],
+)
+async def driver_coaching(
+    driver_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DB = None,
+):
+    driver = await _get_driver_or_404(driver_id, db)
+    if current_user.role == "DRIVER" and driver.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if current_user.role not in ("ADMIN", "DISPATCHER", "MECHANIC", "FINANCE", "DRIVER"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    rows = await get_driver_coaching(db, driver_id)
+    return ApiResponse(data=[CoachingRecommendationResponse.model_validate(row) for row in rows])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -486,3 +584,5 @@ async def get_driver_trips(
             has_previous_page=page > 1,
         ),
     )
+
+

@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, Text,
+    String, Integer, Float, Boolean, DateTime, Text, JSON,
     ForeignKey, Enum as SAEnum, func, UniqueConstraint
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -634,3 +634,313 @@ class Notification(Base):
     created_at:  Mapped[datetime]      = mapped_column(TZ, server_default=func.now())
 
     recipient: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+
+
+# ------------------------------------------------------------------------------
+# ANALYTICS & INTELLIGENCE
+# ------------------------------------------------------------------------------
+
+class VehicleTelemetrySnapshot(Base):
+    __tablename__ = "vehicle_telemetry_snapshots"
+
+    id:                Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    truck_id:          Mapped[str]            = mapped_column(String(36), ForeignKey("trucks.id"), index=True)
+    recorded_at:       Mapped[datetime]       = mapped_column(TZ, index=True)
+    odometer_km:       Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    engine_temp_c:     Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    tire_pressure_avg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    battery_voltage:   Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fuel_rate:         Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    speed_avg:         Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at:        Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class VehicleHealthScore(Base):
+    __tablename__ = "vehicle_health_scores"
+
+    id:                   Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    truck_id:             Mapped[str]            = mapped_column(String(36), ForeignKey("trucks.id"), index=True)
+    score:                Mapped[float]          = mapped_column(Float)
+    risk_level:           Mapped[str]            = mapped_column(String(20), default="low", index=True)
+    predicted_issue_type: Mapped[Optional[str]]  = mapped_column(String(120), nullable=True)
+    confidence:           Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    details:              Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    generated_at:         Mapped[datetime]       = mapped_column(TZ, index=True)
+    created_at:           Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class MaintenancePrediction(Base):
+    __tablename__ = "maintenance_predictions"
+
+    id:                  Mapped[str]             = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    truck_id:            Mapped[str]             = mapped_column(String(36), ForeignKey("trucks.id"), index=True)
+    source_window_start: Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    source_window_end:   Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    recommended_action:  Mapped[str]             = mapped_column(String(255))
+    due_by_date:         Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    due_by_odometer:     Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    severity:            Mapped[str]             = mapped_column(String(20), default="medium", index=True)
+    explanation:         Mapped[Optional[str]]   = mapped_column(Text, nullable=True)
+    status:              Mapped[str]             = mapped_column(String(20), default="open", index=True)
+    created_at:          Mapped[datetime]        = mapped_column(TZ, server_default=func.now())
+    generated_at:        Mapped[datetime]        = mapped_column(TZ, index=True)
+
+
+class AnomalyEvent(Base):
+    __tablename__ = "anomaly_events"
+
+    id:                Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    entity_type:       Mapped[str]            = mapped_column(String(50), index=True)
+    entity_id:         Mapped[str]            = mapped_column(String(36), index=True)
+    metric_name:       Mapped[str]            = mapped_column(String(100), index=True)
+    observed_value:    Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    baseline_value:    Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    anomaly_score:     Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    severity:          Mapped[str]            = mapped_column(String(20), default="medium", index=True)
+    summary:           Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    detected_at:       Mapped[datetime]       = mapped_column(TZ, index=True)
+    resolution_status: Mapped[str]            = mapped_column(String(20), default="open", index=True)
+    metadata_json:     Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at:        Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+# ------------------------------------------------------------------------------
+# ROUTE OPTIMIZATION
+# ------------------------------------------------------------------------------
+
+class RoutePlan(Base):
+    __tablename__ = "route_plans"
+
+    id:                  Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    trip_id:             Mapped[str]            = mapped_column(String(36), ForeignKey("trips.id"), unique=True, index=True)
+    origin_lat:          Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    origin_lng:          Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    destination_lat:     Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    destination_lng:     Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    route_geometry_ref:  Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    distance_km:         Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    duration_secs:       Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    eta_at:              Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    optimization_source: Mapped[str]            = mapped_column(String(50), default="osrm")
+    score:               Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    generated_at:        Mapped[datetime]       = mapped_column(TZ, index=True)
+    created_at:          Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class RouteAlternative(Base):
+    __tablename__ = "route_alternatives"
+
+    id:             Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    route_plan_id:  Mapped[str]            = mapped_column(String(36), ForeignKey("route_plans.id"), index=True)
+    label:          Mapped[str]            = mapped_column(String(120))
+    geometry_ref:   Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    distance_km:    Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    duration_secs:  Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    fuel_estimate:  Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    rank:           Mapped[int]            = mapped_column(Integer, default=1)
+    notes:          Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    created_at:     Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+# ------------------------------------------------------------------------------
+# DRIVER BEHAVIOR
+# ------------------------------------------------------------------------------
+
+class DriverBehaviorEvent(Base):
+    __tablename__ = "driver_behavior_events"
+
+    id:             Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    driver_id:      Mapped[str]            = mapped_column(String(36), ForeignKey("drivers.id"), index=True)
+    trip_id:        Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("trips.id"), nullable=True, index=True)
+    event_type:     Mapped[str]            = mapped_column(String(50), index=True)
+    severity:       Mapped[str]            = mapped_column(String(20), default="medium", index=True)
+    measured_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    threshold:      Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    notes:          Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    occurred_at:    Mapped[datetime]       = mapped_column(TZ, index=True)
+    created_at:     Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class DriverScorecard(Base):
+    __tablename__ = "driver_scorecards"
+
+    id:                 Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    driver_id:          Mapped[str]            = mapped_column(String(36), ForeignKey("drivers.id"), index=True)
+    score_period_start: Mapped[datetime]       = mapped_column(TZ, index=True)
+    score_period_end:   Mapped[datetime]       = mapped_column(TZ, index=True)
+    safety_score:       Mapped[float]          = mapped_column(Float, default=0.0)
+    efficiency_score:   Mapped[float]          = mapped_column(Float, default=0.0)
+    punctuality_score:  Mapped[float]          = mapped_column(Float, default=0.0)
+    total_score:        Mapped[float]          = mapped_column(Float, default=0.0)
+    summary:            Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    generated_at:       Mapped[datetime]       = mapped_column(TZ, index=True)
+    created_at:         Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class CoachingRecommendation(Base):
+    __tablename__ = "coaching_recommendations"
+
+    id:                  Mapped[str]             = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    driver_id:           Mapped[str]             = mapped_column(String(36), ForeignKey("drivers.id"), index=True)
+    recommendation_type: Mapped[str]             = mapped_column(String(80), index=True)
+    reason:              Mapped[str]             = mapped_column(Text)
+    suggested_action:    Mapped[str]             = mapped_column(Text)
+    generated_at:        Mapped[datetime]        = mapped_column(TZ, index=True)
+    acknowledged_at:     Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    created_at:          Mapped[datetime]        = mapped_column(TZ, server_default=func.now())
+
+
+# ------------------------------------------------------------------------------
+# OCR / DOCUMENT EXTRACTION
+# ------------------------------------------------------------------------------
+
+class DocumentOCRJob(Base):
+    __tablename__ = "document_ocr_jobs"
+
+    id:            Mapped[str]             = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    document_type: Mapped[str]             = mapped_column(String(50), index=True)
+    entity_type:   Mapped[str]             = mapped_column(String(50), index=True)
+    entity_id:     Mapped[str]             = mapped_column(String(36), index=True)
+    file_url:      Mapped[str]             = mapped_column(String(500))
+    status:        Mapped[str]             = mapped_column(String(20), default="uploaded", index=True)
+    processor:     Mapped[Optional[str]]   = mapped_column(String(80), nullable=True)
+    extracted_text: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    started_at:    Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    completed_at:  Mapped[Optional[datetime]] = mapped_column(TZ, nullable=True)
+    error_message: Mapped[Optional[str]]   = mapped_column(Text, nullable=True)
+    created_at:    Mapped[datetime]        = mapped_column(TZ, server_default=func.now())
+
+
+class ExtractedDocumentField(Base):
+    __tablename__ = "extracted_document_fields"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    ocr_job_id:  Mapped[str]            = mapped_column(String(36), ForeignKey("document_ocr_jobs.id"), index=True)
+    field_name:  Mapped[str]            = mapped_column(String(120), index=True)
+    field_value: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    confidence:  Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class DocumentVerificationIssue(Base):
+    __tablename__ = "document_verification_issues"
+
+    id:         Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    ocr_job_id: Mapped[str]            = mapped_column(String(36), ForeignKey("document_ocr_jobs.id"), index=True)
+    issue_type: Mapped[str]            = mapped_column(String(80), index=True)
+    severity:   Mapped[str]            = mapped_column(String(20), default="medium", index=True)
+    message:    Mapped[str]            = mapped_column(Text)
+    created_at: Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+# ------------------------------------------------------------------------------
+# ASSISTANT
+# ------------------------------------------------------------------------------
+
+class KnowledgeDocument(Base):
+    __tablename__ = "knowledge_documents"
+
+    id:           Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    title:        Mapped[str]            = mapped_column(String(255))
+    source_type:  Mapped[str]            = mapped_column(String(50), index=True)
+    source_ref:   Mapped[Optional[str]]  = mapped_column(String(255), nullable=True)
+    entity_type:  Mapped[Optional[str]]  = mapped_column(String(50), nullable=True, index=True)
+    entity_id:    Mapped[Optional[str]]  = mapped_column(String(36), nullable=True, index=True)
+    content_text: Mapped[str]            = mapped_column(Text)
+    created_at:   Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+    updated_at:   Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id:            Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    document_id:   Mapped[str]            = mapped_column(String(36), ForeignKey("knowledge_documents.id"), index=True)
+    chunk_text:    Mapped[str]            = mapped_column(Text)
+    chunk_order:   Mapped[int]            = mapped_column(Integer, default=0)
+    embedding_ref: Mapped[Optional[str]]  = mapped_column(String(255), nullable=True)
+    created_at:    Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id:         Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id:    Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    title:      Mapped[Optional[str]]  = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+    updated_at: Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    session_id:  Mapped[str]            = mapped_column(String(36), ForeignKey("chat_sessions.id"), index=True)
+    role:        Mapped[str]            = mapped_column(String(20), index=True)
+    content:     Mapped[str]            = mapped_column(Text)
+    metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class AssistantActionLog(Base):
+    __tablename__ = "assistant_action_logs"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    session_id:  Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("chat_sessions.id"), nullable=True, index=True)
+    user_id:     Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+    tool_name:   Mapped[str]            = mapped_column(String(80), index=True)
+    target_type: Mapped[Optional[str]]  = mapped_column(String(50), nullable=True)
+    target_id:   Mapped[Optional[str]]  = mapped_column(String(36), nullable=True)
+    result_text: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+# ------------------------------------------------------------------------------
+# DASHBOARDS & REPORTS
+# ------------------------------------------------------------------------------
+
+class DashboardTemplate(Base):
+    __tablename__ = "dashboard_templates"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    name:        Mapped[str]            = mapped_column(String(120), unique=True, index=True)
+    description: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
+    config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
+    created_by:  Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+
+
+class UserDashboardPreference(Base):
+    __tablename__ = "user_dashboard_preferences"
+
+    id:                  Mapped[str]             = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id:             Mapped[str]             = mapped_column(String(36), ForeignKey("users.id"), unique=True, index=True)
+    dashboard_template_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("dashboard_templates.id"), nullable=True)
+    widgets_json:        Mapped[dict]            = mapped_column(JSON, default=dict)
+    layout_json:         Mapped[dict]            = mapped_column(JSON, default=dict)
+    updated_at:          Mapped[datetime]        = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+
+class SavedReport(Base):
+    __tablename__ = "saved_reports"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id:     Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    name:        Mapped[str]            = mapped_column(String(120))
+    report_type: Mapped[str]            = mapped_column(String(50), index=True)
+    filters_json: Mapped[dict]          = mapped_column(JSON, default=dict)
+    config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+    updated_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+
+
+class ReportWidgetConfig(Base):
+    __tablename__ = "report_widget_configs"
+
+    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    code:        Mapped[str]            = mapped_column(String(80), unique=True, index=True)
+    name:        Mapped[str]            = mapped_column(String(120))
+    category:    Mapped[str]            = mapped_column(String(50), index=True)
+    config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
+    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())

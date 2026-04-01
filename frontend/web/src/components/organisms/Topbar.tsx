@@ -78,12 +78,19 @@ function NotificationBell() {
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9"
+          aria-label="Notifications"
+          data-testid="notifications-bell"
+        >
           <Bell className={cn("h-5 w-5", hasUnread && "text-foreground")} />
           {hasUnread && (
             <span
+              data-testid="notifications-badge"
               className={cn(
                 "absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center",
                 "rounded-full bg-red-500 text-[10px] font-bold text-white",
@@ -111,6 +118,8 @@ function NotificationBell() {
           {hasUnread && (
             <button
               onClick={() => markAllRead.mutate()}
+              aria-label="Mark all notifications as read"
+              data-testid="notifications-mark-all"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <CheckCheck className="h-3.5 w-3.5" />
@@ -234,7 +243,12 @@ export function Topbar({ user, onLogout, onMenuToggle }: TopbarProps) {
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex h-9 items-center gap-2 px-2 hover:bg-muted">
+            <Button
+              variant="ghost"
+              className="flex h-9 items-center gap-2 px-2 hover:bg-muted"
+              aria-label="Open user menu"
+              data-testid="user-menu-trigger"
+            >
               <Avatar className="h-7 w-7">
                 <AvatarImage src={getStaticUrl(user.avatarUrl) ?? undefined} alt={displayName} />
                 <AvatarFallback className="text-xs font-semibold">
@@ -279,6 +293,7 @@ export function Topbar({ user, onLogout, onMenuToggle }: TopbarProps) {
             <DropdownMenuItem
               onClick={onLogout}
               className="text-destructive focus:text-destructive cursor-pointer"
+              data-testid="logout-menu-item"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Log out

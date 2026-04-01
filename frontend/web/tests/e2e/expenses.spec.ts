@@ -72,11 +72,7 @@ import { test, expect } from "./fixtures";
 //   Option B (route): "/fuel/expenses/" — if the router exposes this directly
 // If Option A, add a tab click inside goToExpenses():
 //   await page.getByRole("tab", { name: /expenses/i }).click();
-const EXPENSE_ROUTE = "/fuel"; // update this
-
-// If expenses live behind a tab, set this selector and uncomment the tab
-// click inside goToExpenses(). Otherwise set to null.
-const EXPENSE_TAB_SELECTOR = /expenses/i; // set to null if direct route
+const EXPENSE_ROUTE = "/fuel";
 
 type Page = import("@playwright/test").Page;
 
@@ -86,17 +82,10 @@ type Page = import("@playwright/test").Page;
 
 async function goToExpenses(page: Page) {
   await page.goto(EXPENSE_ROUTE);
-  await page.waitForLoadState("networkidle");
-
-  // If expenses are behind a tab, click it after navigation
-  if (EXPENSE_TAB_SELECTOR) {
-    const tab = page.getByRole("tab", { name: EXPENSE_TAB_SELECTOR });
-    const tabVisible = await tab.isVisible().catch(() => false);
-    if (tabVisible) {
-      await tab.click();
-      await page.waitForLoadState("networkidle");
-    }
-  }
+  await page.getByTestId("fuel-tab-expenses").click();
+  await expect(page.getByTestId("fuel-panel-expenses")).toBeVisible({
+    timeout: 8_000,
+  });
 }
 
 async function addExpense(

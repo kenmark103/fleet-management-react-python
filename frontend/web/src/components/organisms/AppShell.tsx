@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { AssistantDrawer } from "./AssistantDrawer";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
 import { cn } from "../../lib/utils";
@@ -60,6 +61,7 @@ export function AppShell({ user, onLogout, children, className }: AppShellProps)
           {children}
         </div>
       </main>
+      <AssistantDrawer />
     </div>
   );
 }

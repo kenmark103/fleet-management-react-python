@@ -256,7 +256,7 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel, onImag
               <FormItem className="sm:col-span-2">
                 <div className="flex items-center justify-between">
                   <FormLabel>Make</FormLabel>
-                  <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  <button type="button" data-testid="truck-make-manual-toggle" className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     onClick={customMakeMode ? handleSwitchToCatalogMake : handleSwitchToCustomMake}>
                     {customMakeMode ? "← Select from catalog" : "Enter manually →"}
                   </button>
@@ -283,7 +283,7 @@ export function TruckForm({ defaultValues, onSubmit, isLoading, onCancel, onImag
                 <div className="flex items-center justify-between">
                   <FormLabel>Model</FormLabel>
                   {!customMakeMode && catalogModels.length > 0 && (
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    <button type="button" data-testid="truck-model-manual-toggle" className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                       onClick={() => { setCustomModelMode((p: boolean) => !p); form.setValue("model", ""); setCatalogSpec(null); }}>
                       {customModelMode ? "← Select from catalog" : "Enter manually →"}
                     </button>

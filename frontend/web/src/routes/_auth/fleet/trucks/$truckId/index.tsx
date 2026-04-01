@@ -18,6 +18,7 @@ import { TruckStatusBadge } from "../../../../../components/fleet/StatusBadge";
 import { DataTable, type Column } from "../../../../../components/molecules/DataTable";
 import { useTruck, useDeleteTruck } from "../../../../../hooks/useFleet";
 import { useTrips } from "../../../../../hooks/useTrips";
+import { useTruckPredictions } from "../../../../../hooks/useAnalytics";
 import type { Trip } from "../../../../../types/trips";
 import { usePermission } from "../../../../../hooks/usePermission";
 import { formatDate, formatNumber, toTitleCase, isExpired, isExpiringSoon, getStaticUrl } from "../../../../../lib/utils";
@@ -43,6 +44,7 @@ function TruckDetail() {
     page:     tripPage,
     pageSize: 10,
   });
+  const { data: predictions, isLoading: predictionsLoading } = useTruckPredictions(truckId);
   const trips    = tripsData?.data ?? [];
   const tripMeta = tripsData?.meta;
 
@@ -151,6 +153,14 @@ function TruckDetail() {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="predictions">
+            Predictions
+            {predictions && predictions.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                {predictions.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="trips">
             Trip History
             {tripMeta && tripMeta.totalItems > 0 && (
@@ -203,6 +213,45 @@ function TruckDetail() {
           <p className="text-xs text-muted-foreground">
             Added {formatDate(truck.createdAt)} · Updated {formatDate(truck.updatedAt)}
           </p>
+        </TabsContent>
+
+        <TabsContent value="predictions" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Maintenance Predictions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {predictionsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading predictions...</p>
+              ) : !predictions || predictions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No predictive maintenance alerts for this truck yet.</p>
+              ) : (
+                predictions.map((prediction) => (
+                  <div key={prediction.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{prediction.recommendedAction}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{prediction.explanation}</p>
+                      </div>
+                      <span className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                        prediction.severity === "high"
+                          ? "bg-red-100 text-red-700 border-red-200"
+                          : "bg-amber-100 text-amber-700 border-amber-200",
+                      )}>
+                        {prediction.severity}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                      <p>Status: <span className="font-medium text-foreground">{prediction.status}</span></p>
+                      <p>Due date: <span className="font-medium text-foreground">{prediction.dueByDate ? formatDate(prediction.dueByDate) : "TBD"}</span></p>
+                      <p>Due odometer: <span className="font-medium text-foreground">{prediction.dueByOdometer ? `${formatNumber(prediction.dueByOdometer)} km` : "TBD"}</span></p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="trips" className="mt-4 space-y-4">

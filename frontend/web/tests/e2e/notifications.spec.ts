@@ -71,7 +71,7 @@ type Page = import("@playwright/test").Page;
  * testId. TODO: add aria-label="Notifications" to Topbar.tsx bell button.
  */
 async function openNotificationsBell(page: Page) {
-  await page.locator("header").getByRole("button").first().click();
+  await page.getByTestId("notifications-bell").click();
   await page.waitForLoadState("networkidle");
 }
 
@@ -89,9 +89,9 @@ test.describe("Notifications — badge", () => {
     adminPage: page,
   }) => {
     // Bell is the first icon-only button in the header
-    await expect(
-      page.locator("header").getByRole("button").first()
-    ).toBeVisible({ timeout: 6_000 });
+    await expect(page.getByTestId("notifications-bell")).toBeVisible({
+      timeout: 6_000,
+    });
   });
 
   test("unread badge shows a numeric count when present", async ({
@@ -101,8 +101,7 @@ test.describe("Notifications — badge", () => {
     await page.waitForLoadState("networkidle");
 
     // Badge is an anonymous <span> inside the bell button — no testId
-    const bellBtn = page.locator("header").getByRole("button").first();
-    const badge = bellBtn.locator("span").filter({ hasText: /\d+/ }).first();
+    const badge = page.getByTestId("notifications-badge");
 
     const isVisible = await badge.isVisible().catch(() => false);
     if (isVisible) {
@@ -148,7 +147,7 @@ test.describe("Notifications — list page", () => {
     await goToNotifications(page);
 
     // FIX: no data-testid — use getByRole("listitem")
-    const items = page.getByRole("listitem");
+    const items = page.getByTestId("notification-item");
     const count = await items.count();
 
     if (count > 0) {
@@ -161,7 +160,7 @@ test.describe("Notifications — list page", () => {
     await goToNotifications(page);
 
     // FIX: filter is a <button> with text "Unread only" (not a label/checkbox)
-    const unreadBtn = page.getByRole("button", { name: /unread only/i });
+    const unreadBtn = page.getByTestId("notifications-unread-toggle");
     const exists = await unreadBtn.isVisible().catch(() => false);
     if (!exists) { test.skip(); return; }
 
@@ -189,7 +188,7 @@ test.describe("Notifications — mark single read", () => {
   }) => {
     await goToNotifications(page);
 
-    const items = page.getByRole("listitem");
+    const items = page.getByTestId("notification-item");
     const count = await items.count();
     if (count === 0) { test.skip(); return; }
 
@@ -209,7 +208,7 @@ test.describe("Notifications — mark single read", () => {
 
     // Find an item that has "New" text (unread indicator)
     const unreadItem = page
-      .getByRole("listitem")
+      .getByTestId("notification-item")
       .filter({ hasText: /\bNew\b/ })
       .first();
 
@@ -272,7 +271,7 @@ test.describe("Notifications — delete", () => {
   }) => {
     await goToNotifications(page);
 
-    const items = page.getByRole("listitem");
+    const items = page.getByTestId("notification-item");
     const countBefore = await items.count();
     if (countBefore === 0) { test.skip(); return; }
 
@@ -299,11 +298,16 @@ test.describe("Notifications — user scoping", () => {
     mechanicPage: mechanicPg,
     adminPage:    adminPg,
   }) => {
+    test.fixme(
+      true,
+      "Current role fixtures share one Playwright page; this needs isolated contexts first."
+    );
+
     await goToNotifications(mechanicPg);
-    const mechanicCount = await mechanicPg.getByRole("listitem").count();
+    const mechanicCount = await mechanicPg.getByTestId("notification-item").count();
 
     await goToNotifications(adminPg);
-    const adminCount = await adminPg.getByRole("listitem").count();
+    const adminCount = await adminPg.getByTestId("notification-item").count();
 
     expect(mechanicCount).toBeGreaterThanOrEqual(0);
     expect(adminCount).toBeGreaterThanOrEqual(0);

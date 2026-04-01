@@ -97,15 +97,13 @@ async function addTruck(
 
   // FIX: Make — click "Enter manually →" to switch from catalog Select to Input
   await page
-    .getByRole("button", { name: /enter manually/i })
-    .first()
+    .getByTestId("truck-make-manual-toggle")
     .click();
   await page.getByLabel(/^make$/i).fill(overrides.make ?? "Ford");
 
   // FIX: Model — click "Enter manually →" for the second toggle (model field)
   await page
-    .getByRole("button", { name: /enter manually/i })
-    .first()
+    .getByTestId("truck-model-manual-toggle")
     .click();
   await page.getByLabel(/^model$/i).fill(overrides.model ?? "Transit");
 
@@ -242,11 +240,11 @@ test.describe("Fleet — Add truck", () => {
     await page.getByLabel(/^year$/i).fill("2022");
 
     // Toggle make to manual and fill
-    await page.getByRole("button", { name: /enter manually/i }).first().click();
+    await page.getByTestId("truck-make-manual-toggle").click();
     await page.getByLabel(/^make$/i).fill("Toyota");
 
     // Toggle model to manual and fill
-    await page.getByRole("button", { name: /enter manually/i }).first().click();
+    await page.getByTestId("truck-model-manual-toggle").click();
     await page.getByLabel(/^model$/i).fill("Hilux");
 
     await page.getByRole("button", { name: /save truck/i }).click();
@@ -384,11 +382,11 @@ test.describe("Fleet — Trailers", () => {
     await page.getByLabel(/^year$/i).fill("2021");
 
     // FIX: Make — toggle to manual input mode
-    await page.getByRole("button", { name: /enter manually/i }).first().click();
+    await page.getByTestId("trailer-make-manual-toggle").click();
     await page.getByLabel(/^make$/i).fill("Schmitz");
 
     // FIX: Model — toggle to manual input mode
-    await page.getByRole("button", { name: /enter manually/i }).first().click();
+    await page.getByTestId("trailer-model-manual-toggle").click();
     await page.getByLabel(/^model$/i).fill("S.CS");
 
     // FIX: Trailer Type — shadcn Select, click trigger then option

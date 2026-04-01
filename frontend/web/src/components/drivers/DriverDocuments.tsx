@@ -15,6 +15,7 @@ import {
   useUploadDriverDocument,
   useDeleteDriverDocument,
 } from "../../hooks/useDrivers";
+import { useDocumentOcr, useStartDocumentOcr } from "../../hooks/useDocuments";
 import type { DriverDocumentCreate, DriverDocumentType } from "../../types/driver";
 import { usePermission } from "../../hooks/usePermission";
 import { ConfirmDialog } from "../atoms/ConfirmDialog";
@@ -169,6 +170,8 @@ function UploadDocumentForm({
 export function DriverDocuments({ driverId }: { driverId: string }) {
   const { data, isLoading, isError } = useDriverDocuments(driverId);
   const deleteDoc = useDeleteDriverDocument(driverId);
+  const ocrJob = useDocumentOcr("driver", driverId);
+  const startOcr = useStartDocumentOcr("driver", driverId);
   const { can }   = usePermission();
 
   const [sheetOpen,     setSheetOpen]     = useState(false);
@@ -277,6 +280,18 @@ export function DriverDocuments({ driverId }: { driverId: string }) {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8"
+                      onClick={() => startOcr.mutate({ documentType: doc.type, entityType: "driver", entityId: driverId, fileUrl: doc.fileUrl })}
+                      disabled={startOcr.isPending}
+                      title="Run OCR"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {can("drivers:upload-documents") && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => setDeleteTarget(doc.id)}
                       title="Delete document"
@@ -289,6 +304,45 @@ export function DriverDocuments({ driverId }: { driverId: string }) {
             );
           })}
         </ul>
+      )}
+
+      {ocrJob.data && (
+        <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">OCR Extraction</p>
+              <p className="text-xs text-muted-foreground">
+                Latest processor: {ocrJob.data.processor} � Status: {ocrJob.data.status}
+              </p>
+            </div>
+            {startOcr.isPending && <span className="text-xs text-muted-foreground">Processing...</span>}
+          </div>
+
+          {ocrJob.data.fields.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ocrJob.data.fields.map((field: { id: string; fieldName: string; fieldValue: string }) => (
+                <div key={field.id} className="rounded-lg border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{field.fieldName}</p>
+                  <p className="mt-1 text-sm font-medium">{field.fieldValue}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Run OCR on a document to extract fields like license number, expiry, and verification issues.
+            </p>
+          )}
+
+          {ocrJob.data.issues.length > 0 && (
+            <div className="space-y-2">
+              {ocrJob.data.issues.map((issue: { id: string; message: string }) => (
+                <div key={issue.id} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {issue.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Upload Sheet ──────────────────────────────────────────────────── */}
@@ -338,3 +392,6 @@ export function DriverDocuments({ driverId }: { driverId: string }) {
     </div>
   );
 }
+
+
+

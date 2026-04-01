@@ -136,8 +136,8 @@ function TripsTab() {
 function FuelTab() {
   const [dates, setDates] = useState<ReportDateParams>({})
   const { data, isLoading } = useFuelReport({
-    date_from: dates.dateFrom,
-    date_to:   dates.dateTo,
+    dateFrom: dates.dateFrom,
+    dateTo:   dates.dateTo,
   })
 
   return (
@@ -148,27 +148,27 @@ function FuelTab() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : data ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard label="Total Fuel Logs"  value={formatNumber(data.totalLogs)} />
+          <StatCard label="Fuel Total"  value={formatCurrency(data.kpis.totalFuelCost, data.currency)} />
           <StatCard
             label="Total Litres"
-            value={formatNumber(data.totalLitres, 0)}
+            value={formatNumber(data.monthlyFuelCosts.reduce((sum, month) => sum + month.totalLitres, 0), 0)}
             sub="litres consumed"
           />
           <StatCard
             label="Total Fuel Cost"
-            value={formatCurrency(data.totalCost, data.currency)}
+            value={formatCurrency(data.kpis.totalFuelCost, data.currency)}
           />
           <StatCard
             label="Avg Cost / Fill"
-            value={formatCurrency(data.avgCostPerLog, data.currency)}
+            value={formatCurrency(data.kpis.totalFuelCost / Math.max(data.monthlyFuelCosts.reduce((sum, month) => sum + (month.totalLitres > 0 ? 1 : 0), 0), 1), data.currency)}
           />
           <StatCard
             label="Total Expenses"
-            value={formatCurrency(data.totalExpenses, data.currency)}
+            value={formatCurrency(data.kpis.totalExpenses, data.currency)}
           />
           <StatCard
             label="Avg L/100 km"
-            value={data.avgLitrePer100Km ? `${data.avgLitrePer100Km.toFixed(1)} L` : "—"}
+            value={data.kpis.avgCostPerKm ? `${data.kpis.avgCostPerKm.toFixed(2)} / km` : "—"}
           />
         </div>
       ) : (
@@ -318,3 +318,9 @@ function ReportsPage() {
     </div>
   )
 }
+
+
+
+
+
+
