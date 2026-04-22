@@ -18,7 +18,7 @@ from auth.tokens import (
     generate_email_verification_token,
     generate_reset_password_token,
 )
-from services.email import send_password_reset, send_email_verification, send_invite_email
+from services.email import send_password_reset, send_invite, send_welcome
 from auth.deps import get_current_user
 from core.config import get_settings
 from core.rate_limiter import limiter
