@@ -50,55 +50,52 @@ async def seed():
                     is_default=True,
                 )
             )
+            print("Dashboard template created.")
 
         existing_widgets = (await db.execute(select(ReportWidgetConfig))).scalars().all()
         if not existing_widgets:
             db.add_all([
                 ReportWidgetConfig(
                     name="Fleet Health",
-                    key="fleet-health",
+                    code="fleet-health",  # Changed from key → code
                     category="analytics",
-                    description="Average health score across the fleet.",
-                    config_json={"endpoint": "/api/v1/analytics/fleet-health", "chart": "stat"},
+                    config_json={"endpoint": "/api/v1/analytics/fleet-health", "chart": "stat", "description": "Average health score across the fleet."},
                 ),
                 ReportWidgetConfig(
                     name="Maintenance Risk",
-                    key="maintenance-risk",
+                    code="maintenance-risk",
                     category="analytics",
-                    description="High-risk maintenance predictions and overdue service.",
-                    config_json={"endpoint": "/api/v1/analytics/fleet-health", "chart": "list"},
+                    config_json={"endpoint": "/api/v1/analytics/fleet-health", "chart": "list", "description": "High-risk maintenance predictions and overdue service."},
                 ),
                 ReportWidgetConfig(
                     name="Recent Anomalies",
-                    key="recent-anomalies",
+                    code="recent-anomalies",
                     category="analytics",
-                    description="Latest anomalies from maintenance and fuel patterns.",
-                    config_json={"endpoint": "/api/v1/analytics/anomalies", "chart": "table"},
+                    config_json={"endpoint": "/api/v1/analytics/anomalies", "chart": "table", "description": "Latest anomalies from maintenance and fuel patterns."},
                 ),
                 ReportWidgetConfig(
                     name="Driver Leaderboard",
-                    key="driver-leaderboard",
+                    code="driver-leaderboard",
                     category="drivers",
-                    description="Top driver scorecards for the current period.",
-                    config_json={"endpoint": "/api/v1/drivers/leaderboard", "chart": "table"},
+                    config_json={"endpoint": "/api/v1/drivers/leaderboard", "chart": "table", "description": "Top driver scorecards for the current period."},
                 ),
                 ReportWidgetConfig(
                     name="Route Plans",
-                    key="route-plans",
+                    code="route-plans",
                     category="routing",
-                    description="Optimized trip routing and ETA summaries.",
-                    config_json={"endpoint": "/api/v1/trips/{tripId}/route-plan", "chart": "map"},
+                    config_json={"endpoint": "/api/v1/trips/{tripId}/route-plan", "chart": "map", "description": "Optimized trip routing and ETA summaries."},
                 ),
                 ReportWidgetConfig(
                     name="OCR Queue",
-                    key="ocr-queue",
+                    code="ocr-queue",
                     category="documents",
-                    description="OCR processing state for uploaded documents.",
-                    config_json={"endpoint": "/api/v1/documents/{entityId}/ocr", "chart": "table"},
+                    config_json={"endpoint": "/api/v1/documents/{entityId}/ocr", "chart": "table", "description": "OCR processing state for uploaded documents."},
                 ),
             ])
+            print("Report widget configs created.")
 
         await db.commit()
+        print("Seed completed successfully.")
 
 
 if __name__ == "__main__":

@@ -8,10 +8,10 @@ Changes in this revision (Stage 2–3):
   - Trailer: added axles (nullable Integer)
   - Trip: updated assigned_truck relationship to back_populates="trips"
 """
-
+from __future__ import annotations
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import (
     String, Integer, Float, Boolean, DateTime, Text, JSON,
@@ -19,6 +19,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
+
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -900,46 +903,51 @@ class AssistantActionLog(Base):
 # DASHBOARDS & REPORTS
 # ------------------------------------------------------------------------------
 
+
 class DashboardTemplate(Base):
     __tablename__ = "dashboard_templates"
 
     id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
     name:        Mapped[str]            = mapped_column(String(120), unique=True, index=True)
     description: Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
-    config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
-    created_by:  Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
-    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
-    widgets_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Seed script uses widgets_json + layout_json (not config_json)
+    widgets_json: Mapped[dict]          = mapped_column(JSON, default=dict)
+    layout_json:  Mapped[dict]          = mapped_column(JSON, default=dict)
+    is_default:   Mapped[bool]          = mapped_column(Boolean, default=False)
+    created_by:   Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    created_at:   Mapped[datetime]      = mapped_column(TZ, server_default=func.now())
 
 
 class UserDashboardPreference(Base):
     __tablename__ = "user_dashboard_preferences"
 
-    id:                  Mapped[str]             = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    user_id:             Mapped[str]             = mapped_column(String(36), ForeignKey("users.id"), unique=True, index=True)
-    dashboard_template_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("dashboard_templates.id"), nullable=True)
-    widgets_json:        Mapped[dict]            = mapped_column(JSON, default=dict)
-    layout_json:         Mapped[dict]            = mapped_column(JSON, default=dict)
-    updated_at:          Mapped[datetime]        = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+    id:                    Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id:               Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), unique=True, index=True)
+    dashboard_template_id: Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("dashboard_templates.id"), nullable=True)
+    widgets_json:          Mapped[dict]           = mapped_column(JSON, default=dict)
+    layout_json:           Mapped[dict]           = mapped_column(JSON, default=dict)
+    updated_at:            Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
 
 class SavedReport(Base):
     __tablename__ = "saved_reports"
 
-    id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    user_id:     Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), index=True)
-    name:        Mapped[str]            = mapped_column(String(120))
-    report_type: Mapped[str]            = mapped_column(String(50), index=True)
-    filters_json: Mapped[dict]          = mapped_column(JSON, default=dict)
-    config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
-    created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
-    updated_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
+    id:           Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    user_id:      Mapped[str]            = mapped_column(String(36), ForeignKey("users.id"), index=True)
+    name:         Mapped[str]            = mapped_column(String(120))
+    report_type:  Mapped[str]            = mapped_column(String(50), index=True)
+    filters_json: Mapped[dict]           = mapped_column(JSON, default=dict)
+    config_json:  Mapped[dict]           = mapped_column(JSON, default=dict)
+    created_at:   Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+    updated_at:   Mapped[datetime]       = mapped_column(TZ, server_default=func.now(), onupdate=func.now())
 
 
 class ReportWidgetConfig(Base):
     __tablename__ = "report_widget_configs"
 
     id:          Mapped[str]            = mapped_column(String(36), primary_key=True, default=gen_uuid)
+    # Seed uses 'key', but schema says 'code'. Using 'code' for API consistency.
+    # If you need backward compat with seed, you could add a property or migration.
     code:        Mapped[str]            = mapped_column(String(80), unique=True, index=True)
     name:        Mapped[str]            = mapped_column(String(120))
     category:    Mapped[str]            = mapped_column(String(50), index=True)

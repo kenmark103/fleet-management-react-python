@@ -32,7 +32,10 @@ class DashboardTemplateResponse(CamelBase):
     id: str
     name: str
     description: Optional[str] = None
-    config_json: dict
+    # Template stores widgets/layout as JSON — expose them flat for the response
+    widgets: list[dict] = []
+    layout: dict = {}
+    is_default: bool = False
 
 
 class SavedReportResponse(CamelBase):

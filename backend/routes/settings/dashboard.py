@@ -11,16 +11,19 @@ from schemas.customization import (
     DashboardPreferencesResponse,
     DashboardPreferencesUpdate,
     DashboardTemplateResponse,
+    DashboardWidgetConfig,
 )
 
 router = APIRouter(prefix='/settings/dashboard', tags=['settings:dashboard'])
 
 
 async def _get_or_create_preference(db: DB, user_id: str) -> UserDashboardPreference:
-    pref = (await db.execute(select(UserDashboardPreference).where(UserDashboardPreference.user_id == user_id))).scalar_one_or_none()
+    pref = (await db.execute(
+        select(UserDashboardPreference).where(UserDashboardPreference.user_id == user_id)
+    )).scalar_one_or_none()
     if pref:
         return pref
-    pref = UserDashboardPreference(user_id=user_id, widgets_json={}, layout_json={})
+    pref = UserDashboardPreference(user_id=user_id, widgets_json={"widgets": []}, layout_json={})
     db.add(pref)
     await db.commit()
     await db.refresh(pref)
@@ -30,24 +33,33 @@ async def _get_or_create_preference(db: DB, user_id: str) -> UserDashboardPrefer
 @router.get('', response_model=ApiResponse[DashboardPreferencesResponse])
 async def get_dashboard_preferences(db: DB, current_user: User = Depends(get_current_user)):
     pref = await _get_or_create_preference(db, current_user.id)
-    templates = (await db.execute(select(DashboardTemplate).order_by(DashboardTemplate.name.asc()))).scalars().all()
+    
+    # Parse widgets_json into list[DashboardWidgetConfig]
+    raw_widgets = pref.widgets_json.get('widgets', [])
+    widgets = [DashboardWidgetConfig(**w) for w in raw_widgets]
+    
     return ApiResponse(data=DashboardPreferencesResponse(
         user_id=current_user.id,
         dashboard_template_id=pref.dashboard_template_id,
-        widgets=pref.widgets_json.get('widgets', []),
+        widgets=widgets,
         layout=pref.layout_json,
         updated_at=pref.updated_at,
     ))
 
 
 @router.patch('', response_model=ApiResponse[DashboardPreferencesResponse])
-async def update_dashboard_preferences(body: DashboardPreferencesUpdate, db: DB, current_user: User = Depends(get_current_user)):
+async def update_dashboard_preferences(
+    body: DashboardPreferencesUpdate, 
+    db: DB, 
+    current_user: User = Depends(get_current_user)
+):
     pref = await _get_or_create_preference(db, current_user.id)
     pref.dashboard_template_id = body.dashboard_template_id
     pref.widgets_json = {'widgets': [item.model_dump() for item in body.widgets]}
     pref.layout_json = body.layout
     await db.commit()
     await db.refresh(pref)
+    
     return ApiResponse(data=DashboardPreferencesResponse(
         user_id=current_user.id,
         dashboard_template_id=pref.dashboard_template_id,
@@ -60,4 +72,16 @@ async def update_dashboard_preferences(body: DashboardPreferencesUpdate, db: DB,
 @router.get('/templates', response_model=ApiResponse[list[DashboardTemplateResponse]])
 async def list_dashboard_templates(db: DB, _: User = Depends(get_current_user)):
     rows = (await db.execute(select(DashboardTemplate).order_by(DashboardTemplate.name.asc()))).scalars().all()
-    return ApiResponse(data=[DashboardTemplateResponse.model_validate(row) for row in rows])
+    
+    # Map widgets_json/layout_json to flat response fields
+    return ApiResponse(data=[
+        DashboardTemplateResponse(
+            id=row.id,
+            name=row.name,
+            description=row.description,
+            widgets=row.widgets_json.get('widgets', []),
+            layout=row.layout_json,
+            is_default=row.is_default,
+        )
+        for row in rows
+    ])
