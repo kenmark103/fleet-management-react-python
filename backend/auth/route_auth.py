@@ -18,7 +18,7 @@ from auth.tokens import (
     generate_email_verification_token,
     generate_reset_password_token,
 )
-from auth.email_utils import send_password_reset_email, send_verification_email
+from services.email import send_password_reset, send_email_verification, send_invite_email
 from auth.deps import get_current_user
 from core.config import get_settings
 from core.rate_limiter import limiter
@@ -142,7 +142,7 @@ async def forgot_password(request: ForgetPasswordRequest, db: DB, background_tas
 
     user.reset_password_token = generate_reset_password_token({"email": user.email})
     await db.commit()
-    background_tasks.add_task(send_password_reset_email, user.email, user.reset_password_token)
+    #background_tasks.add_task(send_password_reset, user.email, user.reset_password_token)
     return {"message": "Password reset link sent — check your email"}
 
 
