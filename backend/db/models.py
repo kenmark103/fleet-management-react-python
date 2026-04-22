@@ -909,6 +909,7 @@ class DashboardTemplate(Base):
     config_json: Mapped[dict]           = mapped_column(JSON, default=dict)
     created_by:  Mapped[Optional[str]]  = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     created_at:  Mapped[datetime]       = mapped_column(TZ, server_default=func.now())
+    widgets_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
 
 class UserDashboardPreference(Base):
